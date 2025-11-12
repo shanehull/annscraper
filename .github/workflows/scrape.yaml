@@ -9,8 +9,12 @@ jobs:
   update-tickers:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Restore history cache
+        uses: actions/cache@v3
+        id: cache-history
+        with:
+          path: /tmp/annscraper/asx_report_history.json
+          key: ${{ runner.os }}-history
       - name: Get latest
         run: |-
           curl --location --reqeust GET \
