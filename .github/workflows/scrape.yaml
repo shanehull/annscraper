@@ -22,6 +22,10 @@ jobs:
             -o annscraper
       - name: Make executable
         run: chmod +x ./annscraper
+      - name: Update apt package list
+        run: sudo apt update
+      - name: Install popper-utils
+        run: sudo apt install -y poppler-utils
       - name: Run scraper
         run: |-
           ./annscraper \
