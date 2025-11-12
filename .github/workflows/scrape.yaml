@@ -12,12 +12,14 @@ jobs:
   scrape:
     runs-on: ubuntu-latest
     steps:
-      - name: Restore history cache
+      - name: Restore history
         uses: actions/cache@v3
         id: cache-history
         with:
           path: /tmp/annscraper/asx_report_history.json
-          key: ${{ runner.os }}-history
+          key: ${{ runner.os }}-history-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-history
       - name: Get latest
         run: |-
           curl --location --request GET \
