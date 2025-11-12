@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  update-tickers:
+  scrape:
     runs-on: ubuntu-latest
     steps:
       - name: Restore history cache
@@ -17,7 +17,7 @@ jobs:
           key: ${{ runner.os }}-history
       - name: Get latest
         run: |-
-          curl --location --reqeust GET \
+          curl --location --request GET \
             'https://github.com/shanehull/annscraper/releases/latest/download/annscraper-linux-amd64' \
             -o annscraper
       - name: Run scraper
