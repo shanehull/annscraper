@@ -2,7 +2,10 @@ name: Scrape Announcements
 
 on:
   schedule:
-    - cron: "*/10 * * * 1-5"
+    # Start of day in AU: 9 PM to 11:59 PM UTC on Sun-Thu (0-4).
+    - cron: "*/10 21-23 * * 0-4"
+    # End of day in AU: 12 AM to 9:59 AM UTC on Mon-Fri (1-5).
+    - cron: "*/10 0-9 * * 1-5"
   workflow_dispatch:
 
 jobs:
