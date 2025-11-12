@@ -27,12 +27,19 @@ jobs:
       - name: Install popper-utils
         run: sudo apt install -y poppler-utils
       - name: Run scraper
+        env:
+          KEYWORDS: ${{ vars.KEYWORDS }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
         run: |-
           ./annscraper \
-            --keywords $KEYWORDS \
-            --smtp-server $SMTP_SERVER \
-            --smtp-pass $SMTP_PASSWORD \
-            --smtp-user $SMTP_USER \
-            --from-email $FROM_EMAIL \
-            --to-email $TO_EMAIL \
+            --keywords "$KEYWORDS" \
+            --smtp-server "$SMTP_SERVER" \
+            --smtp-pass "$SMTP_PASSWORD" \
+            --smtp-user "$SMTP_USER" \
+            --from-email "$FROM_EMAIL" \
+            --to-email "$TO_EMAIL" \
             --price-sensitive
