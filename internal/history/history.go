@@ -13,7 +13,7 @@ import (
 )
 
 const historyFileName = "asx_report_history.json"
-const historyDirName = "asx_scraper"
+const historyDirName = "annscraper"
 
 type History struct {
 	ReportDate      string
