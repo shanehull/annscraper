@@ -20,6 +20,8 @@ jobs:
           curl --location --request GET \
             'https://github.com/shanehull/annscraper/releases/latest/download/annscraper-linux-amd64' \
             -o annscraper
+      - name: Make executable
+        run: chmod +x ./annscraper
       - name: Run scraper
         run: |-
           ./annscraper \
