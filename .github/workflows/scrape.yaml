@@ -1,0 +1,28 @@
+name: Scrape Announcements
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  update-tickers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Get latest
+        run: |-
+          curl --location --reqeust GET \
+            'https://github.com/shanehull/annscraper/releases/latest/download/annscraper-linux-amd64' \
+            -o annscraper
+      - name: Run scraper
+        run: |-
+          ./annscraper \
+            --keywords $KEYWORDS \
+            --smtp-server $SMTP_SERVER \
+            --smtp-pass $SMTP_PASSWORD \
+            --smtp-user $SMTP_USER \
+            --from-email $FROM_EMAIL \
+            --to-email $TO_EMAIL \
+            --price-sensitive

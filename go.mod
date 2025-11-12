@@ -1,4 +1,4 @@
-module github.com/shanehull/anns-scraper
+module github.com/shanehull/annscraper
 
 go 1.25.0
 
