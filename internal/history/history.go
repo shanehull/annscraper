@@ -24,18 +24,26 @@ type Manager struct {
 	history         History
 	mutex           sync.Mutex
 	historyFilePath string
+	reportLocation  *time.Location
 }
 
-func NewManager() (*Manager, error) {
+func NewManager(tzName string) (*Manager, error) {
 	historyDir := filepath.Join(os.TempDir(), historyDirName)
 	if err := os.MkdirAll(historyDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create temporary history directory %s: %w", historyDir, err)
 	}
 	filePath := filepath.Join(historyDir, historyFileName)
 
+	loc, err := time.LoadLocation(tzName)
+	if err != nil {
+		return nil, fmt.Errorf("invalid time zone name '%s': %w", tzName, err)
+	}
+
 	m := &Manager{
 		historyFilePath: filePath,
+		reportLocation:  loc,
 	}
+
 	m.loadHistory()
 	return m, nil
 }
@@ -44,7 +52,7 @@ func (m *Manager) loadHistory() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	today := time.Now().Format("2006-01-02")
+	today := m.getCurrentReportDate()
 	m.history = History{
 		ReportDate:      today,
 		ReportedMatches: make(map[string]map[string]bool),
@@ -75,7 +83,7 @@ func (m *Manager) loadHistory() {
 }
 
 func (m *Manager) saveHistory() {
-	m.history.ReportDate = time.Now().Format("2006-01-02")
+	m.history.ReportDate = m.getCurrentReportDate()
 
 	data, err := json.MarshalIndent(m.history, "", "  ")
 	if err != nil {
@@ -130,4 +138,8 @@ func (m *Manager) RecordMatches(matches []types.Match) {
 
 func (m *Manager) HistoryFilePath() string {
 	return m.historyFilePath
+}
+
+func (m *Manager) getCurrentReportDate() string {
+	return time.Now().In(m.reportLocation).Format("2006-01-02")
 }
