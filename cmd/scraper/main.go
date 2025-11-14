@@ -12,6 +12,8 @@ import (
 	"github.com/shanehull/annscraper/internal/types"
 )
 
+var timezone = "Australia/Sydney"
+
 func parseKeywords(s string) []string {
 	parts := strings.Split(s, ",")
 	var keywords []string
@@ -54,7 +56,7 @@ func main() {
 		Enabled:    (*smtpServer != "" && *smtpUser != "" && *smtpPass != "" && *toEmail != "" && *fromEmail != ""),
 	}
 
-	historyManager, err := history.NewManager()
+	historyManager, err := history.NewManager(timezone)
 	if err != nil {
 		fmt.Printf("Fatal error setting up history: %v\n", err)
 		os.Exit(1)
