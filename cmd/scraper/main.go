@@ -25,7 +25,6 @@ func parseKeywords(s string) []string {
 }
 
 func main() {
-	// --- Flag Parsing ---
 	keywordStr := flag.String("keywords", "", "Comma-separated list of keywords or exact phrases")
 	filterPriceSensitive := flag.Bool("price-sensitive", false, "(-s) Process ONLY price sensitive announcements")
 	smtpServer := flag.String("smtp-server", "", "SMTP server address")
@@ -45,7 +44,6 @@ func main() {
 
 	keywords := parseKeywords(*keywordStr)
 
-	// Use notify.EmailConfig
 	emailConfig := notify.EmailConfig{
 		SMTPServer: *smtpServer,
 		SMTPPort:   *smtpPort,
@@ -55,9 +53,7 @@ func main() {
 		FromEmail:  *fromEmail,
 		Enabled:    (*smtpServer != "" && *smtpUser != "" && *smtpPass != "" && *toEmail != "" && *fromEmail != ""),
 	}
-	// --------------------
 
-	// --- 1. History Setup ---
 	historyManager, err := history.NewManager()
 	if err != nil {
 		fmt.Printf("Fatal error setting up history: %v\n", err)
@@ -66,7 +62,6 @@ func main() {
 
 	fmt.Printf("Starting ASX Scraper. Searching for keywords/phrases: %s\n", strings.Join(keywords, ", "))
 
-	// --- 2. Scrape All Announcements ---
 	announcements, err := asx.ScrapeAnnouncements(*filterPriceSensitive)
 	if err != nil {
 		fmt.Printf("Fatal error during scraping: %v\n", err)
@@ -81,16 +76,12 @@ func main() {
 	}
 	fmt.Printf("Found %d total announcements (price-sensitive: %t). Starting PDF download and search...\n", totalAnns, *filterPriceSensitive)
 
-	// --- 3. Process Announcements ---
-	// Create the filter function, using types.Announcement
 	filterFunc := func(ann types.Announcement, foundKeywords []string) []string {
 		return historyManager.FilterNewMatches(ann, foundKeywords)
 	}
 
-	// asx.ProcessAnnouncements returns []types.Match
 	newMatches := asx.ProcessAnnouncements(announcements, keywords, filterFunc)
 
-	// --- 4. Report and Save ---
 	if len(newMatches) == 0 {
 		fmt.Println("\n-------------------------------------------")
 		fmt.Println("No new matching keywords found in any announcement today.")
@@ -102,6 +93,5 @@ func main() {
 		}
 	}
 
-	// --- 5. Record Matches ---
 	historyManager.RecordMatches(newMatches)
 }
