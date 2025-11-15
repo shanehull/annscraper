@@ -34,7 +34,12 @@ func ScrapeAnnouncements(filterPriceSensitive bool, previous bool) ([]types.Anno
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch URL: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("received non-OK status code: %d", resp.StatusCode)
@@ -49,8 +54,7 @@ func ScrapeAnnouncements(filterPriceSensitive bool, previous bool) ([]types.Anno
 	var f func(*html.Node)
 	var inTableBody bool
 
-	var processTableCell func(*html.Node, int, *types.Announcement)
-	processTableCell = func(n *html.Node, tdIndex int, ann *types.Announcement) {
+	processTableCell := func(n *html.Node, tdIndex int, ann *types.Announcement) {
 		var extractText func(*html.Node) string
 		extractText = func(n *html.Node) string {
 			if n.Type == html.TextNode {
