@@ -29,6 +29,10 @@ func parseKeywords(s string) []string {
 func main() {
 	keywordStr := flag.String("keywords", "", "Comma-separated list of keywords or exact phrases")
 	filterPriceSensitive := flag.Bool("price-sensitive", false, "(-s) Process ONLY price sensitive announcements")
+	flag.BoolVar(filterPriceSensitive, "s", false, "(-s) Process ONLY price sensitive announcements (shorthand)")
+	scrapePrevious := flag.Bool("previous", false, "(-p) Scrape previous business days announcements")
+	flag.BoolVar(scrapePrevious, "p", false, "(-p) Scrape previous business days announcements (shorthand)")
+
 	smtpServer := flag.String("smtp-server", "", "SMTP server address")
 	smtpPort := flag.Int("smtp-port", 587, "SMTP server port")
 	smtpUser := flag.String("smtp-user", "", "SMTP username (email address)")
@@ -64,7 +68,7 @@ func main() {
 
 	fmt.Printf("Starting ASX Scraper. Searching for keywords/phrases: %s\n", strings.Join(keywords, ", "))
 
-	announcements, err := asx.ScrapeAnnouncements(*filterPriceSensitive)
+	announcements, err := asx.ScrapeAnnouncements(*filterPriceSensitive, *scrapePrevious)
 	if err != nil {
 		fmt.Printf("Fatal error during scraping: %v\n", err)
 		os.Exit(1)

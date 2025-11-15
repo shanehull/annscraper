@@ -14,7 +14,8 @@ import (
 	"golang.org/x/net/html"
 )
 
-const asxAnnouncementsURL = "https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
+const asxAnnouncementsTodayURL = "https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
+const asxAnnouncementsPrevURL = "https://www.asx.com.au/asx/v2/statistics/prevBusDayAnns.do"
 const asxBaseURL = "https://www.asx.com.au"
 const asxTermsAction = "/asx/v2/statistics/announcementTerms.do"
 const pdfProcessingTimeout = 60 * time.Second
@@ -23,7 +24,12 @@ var client = &http.Client{
 	Timeout: 60 * time.Second,
 }
 
-func ScrapeAnnouncements(filterPriceSensitive bool) ([]types.Announcement, error) {
+func ScrapeAnnouncements(filterPriceSensitive bool, previous bool) ([]types.Announcement, error) {
+	asxAnnouncementsURL := asxAnnouncementsTodayURL
+	if previous {
+		asxAnnouncementsURL = asxAnnouncementsPrevURL
+	}
+
 	resp, err := client.Get(asxAnnouncementsURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch URL: %w", err)
