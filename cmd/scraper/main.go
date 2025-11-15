@@ -12,7 +12,7 @@ import (
 	"github.com/shanehull/annscraper/internal/types"
 )
 
-var timezone = "Australia/Sydney"
+const timezone = "Australia/Sydney"
 
 func parseKeywords(s string) []string {
 	parts := strings.Split(s, ",")
