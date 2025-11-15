@@ -28,6 +28,7 @@ func parseKeywords(s string) []string {
 
 func main() {
 	keywordStr := flag.String("keywords", "", "Comma-separated list of keywords or exact phrases")
+	flag.StringVar(keywordStr, "k", "", "(-k) Comma-separated list of keywords or exact phrases (shorthand)")
 	filterPriceSensitive := flag.Bool("price-sensitive", false, "(-s) Process ONLY price sensitive announcements")
 	flag.BoolVar(filterPriceSensitive, "s", false, "(-s) Process ONLY price sensitive announcements (shorthand)")
 	scrapePrevious := flag.Bool("previous", false, "(-p) Scrape previous business days announcements")
