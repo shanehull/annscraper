@@ -52,7 +52,12 @@ func extractTextFromPDF(asxTriggerURL string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed initial GET to %s: %w", asxTriggerURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -93,7 +98,12 @@ func extractTextFromPDF(asxTriggerURL string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to download final PDF from %s: %w", finalPDFURL, err)
 	}
-	defer pdfResp.Body.Close()
+	defer func() {
+		err := pdfResp.Body.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	if pdfResp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("failed to download PDF: received status code %d from %s", pdfResp.StatusCode, finalPDFURL)
@@ -117,9 +127,17 @@ func extractTextFromPDF(asxTriggerURL string) (string, error) {
 			return
 		}
 		tmpFileName := tmpFile.Name()
-		tmpFile.Close()
+		err = tmpFile.Close()
+		if err != nil {
+			errChan <- fmt.Errorf("failed to close temporary file: %w", err)
+		}
 
-		defer os.Remove(tmpFileName)
+		defer func() {
+			err := os.Remove(tmpFileName)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
 
 		if err := os.WriteFile(tmpFileName, pdfBytes, 0644); err != nil {
 			errChan <- fmt.Errorf("failed to write PDF bytes to temp file: %w", err)
@@ -135,11 +153,11 @@ func extractTextFromPDF(asxTriggerURL string) (string, error) {
 		cmd.Stderr = &stderr
 
 		if err := cmd.Run(); err != nil {
-			errMsg := fmt.Sprintf("pdftotext failed: %v. Stderr: %s", err, strings.TrimSpace(stderr.String()))
-			if strings.Contains(errMsg, "no such file or directory") || strings.Contains(errMsg, "not found") {
+			cmdErr := fmt.Errorf("pdftotext failed: %v. Stderr: %s", err, strings.TrimSpace(stderr.String()))
+			if strings.Contains(cmdErr.Error(), "no such file or directory") || strings.Contains(cmdErr.Error(), "not found") {
 				errChan <- fmt.Errorf("pdftotext binary not found. Please ensure poppler-utils is installed. Error: %s", strings.TrimSpace(stderr.String()))
 			} else {
-				errChan <- fmt.Errorf(errMsg)
+				errChan <- cmdErr
 			}
 			return
 		}

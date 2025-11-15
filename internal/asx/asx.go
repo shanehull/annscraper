@@ -14,7 +14,8 @@ import (
 	"golang.org/x/net/html"
 )
 
-const asxAnnouncementsURL = "https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
+const asxAnnouncementsTodayURL = "https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
+const asxAnnouncementsPrevURL = "https://www.asx.com.au/asx/v2/statistics/prevBusDayAnns.do"
 const asxBaseURL = "https://www.asx.com.au"
 const asxTermsAction = "/asx/v2/statistics/announcementTerms.do"
 const pdfProcessingTimeout = 60 * time.Second
@@ -23,12 +24,22 @@ var client = &http.Client{
 	Timeout: 60 * time.Second,
 }
 
-func ScrapeAnnouncements(filterPriceSensitive bool) ([]types.Announcement, error) {
+func ScrapeAnnouncements(filterPriceSensitive bool, previous bool) ([]types.Announcement, error) {
+	asxAnnouncementsURL := asxAnnouncementsTodayURL
+	if previous {
+		asxAnnouncementsURL = asxAnnouncementsPrevURL
+	}
+
 	resp, err := client.Get(asxAnnouncementsURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch URL: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("received non-OK status code: %d", resp.StatusCode)
@@ -43,8 +54,7 @@ func ScrapeAnnouncements(filterPriceSensitive bool) ([]types.Announcement, error
 	var f func(*html.Node)
 	var inTableBody bool
 
-	var processTableCell func(*html.Node, int, *types.Announcement)
-	processTableCell = func(n *html.Node, tdIndex int, ann *types.Announcement) {
+	processTableCell := func(n *html.Node, tdIndex int, ann *types.Announcement) {
 		var extractText func(*html.Node) string
 		extractText = func(n *html.Node) string {
 			if n.Type == html.TextNode {
