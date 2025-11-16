@@ -12,7 +12,7 @@ import (
 	"github.com/shanehull/annscraper/internal/types"
 )
 
-var timezone = "Australia/Sydney"
+const timezone = "Australia/Sydney"
 
 func parseKeywords(s string) []string {
 	parts := strings.Split(s, ",")
@@ -26,25 +26,56 @@ func parseKeywords(s string) []string {
 	return keywords
 }
 
-func main() {
-	keywordStr := flag.String("keywords", "", "Comma-separated list of keywords or exact phrases")
-	filterPriceSensitive := flag.Bool("price-sensitive", false, "(-s) Process ONLY price sensitive announcements")
+var (
+	keywordStr           = flag.String("keywords", "", "(-k) Comma-separated list of keywords or exact phrases")
+	filterPriceSensitive = flag.Bool("price-sensitive", false, "(-s) Process ONLY price sensitive announcements")
+	scrapePrevious       = flag.Bool("previous", false, "(-p) Scrape previous business days announcements")
+
+	smtpServer = flag.String("smtp-server", "smtp.gmail.com", "SMTP server address (default: smtp.gmail.com)")
+	smtpPort   = flag.Int("smtp-port", 587, "SMTP server port (default: 587)")
+	smtpUser   = flag.String("smtp-user", "", "SMTP username (email address)")
+	smtpPass   = flag.String("smtp-pass", "", "SMTP password or App Password")
+	toEmail    = flag.String("to-email", "", "Recipient email address")
+	fromEmail  = flag.String("from-email", "", "Sender email address (default: smtp-user)")
+)
+
+func init() {
+	flag.StringVar(keywordStr, "k", "", "(-k) Comma-separated list of keywords or exact phrases (shorthand)")
 	flag.BoolVar(filterPriceSensitive, "s", false, "(-s) Process ONLY price sensitive announcements (shorthand)")
-	scrapePrevious := flag.Bool("previous", false, "(-p) Scrape previous business days announcements")
 	flag.BoolVar(scrapePrevious, "p", false, "(-p) Scrape previous business days announcements (shorthand)")
 
-	smtpServer := flag.String("smtp-server", "", "SMTP server address")
-	smtpPort := flag.Int("smtp-port", 587, "SMTP server port")
-	smtpUser := flag.String("smtp-user", "", "SMTP username (email address)")
-	smtpPass := flag.String("smtp-pass", "", "SMTP password or App Password")
-	toEmail := flag.String("to-email", "", "Recipient email address")
-	fromEmail := flag.String("from-email", "", "Sender email address (must match user/auth)")
+	flag.Usage = func() {
+		flagSet := flag.CommandLine
+		fmt.Printf("Custom Usage of %s:\n", "myprogram")
 
+		order := []string{
+			"keywords",
+			"price-sensitive",
+			"previous",
+			"smtp-server",
+			"smtp-port",
+			"smtp-user",
+			"smtp-pass",
+			"to-email",
+			"from-email",
+		}
+
+		for _, name := range order {
+			f := flagSet.Lookup(name)
+			if f != nil {
+				fmt.Printf("  -%s\n", f.Name)
+				fmt.Printf("    %s\n", f.Usage)
+			}
+		}
+	}
+}
+
+func main() {
 	flag.Parse()
 
 	if *keywordStr == "" {
 		fmt.Println("Error: Keywords are required.")
-		fmt.Println("Usage: go run ./cmd/scraper/main.go -keywords 'keyword1' [-s=false] --smtp-server=... --to-email=...")
+		fmt.Println("Usage: annscraper -keywords 'keyword1,keyword2' [-s] --smtp-server=... --to-email=...")
 		os.Exit(1)
 	}
 
@@ -57,7 +88,11 @@ func main() {
 		SMTPPass:   *smtpPass,
 		ToEmail:    *toEmail,
 		FromEmail:  *fromEmail,
-		Enabled:    (*smtpServer != "" && *smtpUser != "" && *smtpPass != "" && *toEmail != "" && *fromEmail != ""),
+		Enabled:    (*smtpServer != "" && *smtpUser != "" && *smtpPass != "" && *toEmail != ""),
+	}
+
+	if emailConfig.FromEmail == "" && emailConfig.SMTPUser != "" {
+		emailConfig.FromEmail = emailConfig.SMTPUser
 	}
 
 	historyManager, err := history.NewManager(timezone)
