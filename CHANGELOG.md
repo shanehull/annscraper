@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.0](https://github.com/shanehull/annscraper/compare/v0.0.3...v0.1.0) (2025-11-19)
+
+
+### Features
+
+* option to scrape previous bus day ([bfa66d4](https://github.com/shanehull/annscraper/commit/bfa66d4b8b49385d8c870d9944f46cc351aa78d7))
+
+
+### Bug Fixes
+
+* add missing shorthand for keywords ([bb83ac7](https://github.com/shanehull/annscraper/commit/bb83ac7c248494f2492d7f9906fa1381d91b8980))
+* default to smpt-user if fromEmail empty ([a7c1888](https://github.com/shanehull/annscraper/commit/a7c188807adfa7e634181298fa3e1fbde30331f3))
+* timzezone as const ([dd819cd](https://github.com/shanehull/annscraper/commit/dd819cdadb9ad2a8306a1226f37c7c159fac98a7))
+
 ## [0.0.3](https://github.com/shanehull/annscraper/compare/v0.0.2...v0.0.3) (2025-11-13)
 
 
