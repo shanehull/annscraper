@@ -39,6 +39,8 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MODEL: ${{ vars.MODEL }}
         run: |-
           ./annscraper \
             --keywords "$KEYWORDS" \
@@ -47,4 +49,6 @@ jobs:
             --smtp-user "$SMTP_USER" \
             --from-email "$FROM_EMAIL" \
             --to-email "$TO_EMAIL" \
+            --gemini-key "$GEMINI_API_KEY" \
+            --model "$MODEL" \
             --price-sensitive

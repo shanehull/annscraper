@@ -31,6 +31,9 @@ var (
 	filterPriceSensitive = flag.Bool("price-sensitive", false, "(-s) Process ONLY price sensitive announcements")
 	scrapePrevious       = flag.Bool("previous", false, "(-p) Scrape previous business days announcements")
 
+	modelName    = flag.String("model", "gemini-3-pro-preview", "Gemini model to use for analysis (e.g., 'gemini-2.5-flash', 'gemini-3-pro-preview')")
+	geminiApiKey = flag.String("gemini-key", "", "Gemini API Key for generating AI summaries")
+
 	smtpServer = flag.String("smtp-server", "smtp.gmail.com", "SMTP server address (default: smtp.gmail.com)")
 	smtpPort   = flag.Int("smtp-port", 587, "SMTP server port (default: 587)")
 	smtpUser   = flag.String("smtp-user", "", "SMTP username (email address)")
@@ -44,14 +47,19 @@ func init() {
 	flag.BoolVar(filterPriceSensitive, "s", false, "(-s) Process ONLY price sensitive announcements (shorthand)")
 	flag.BoolVar(scrapePrevious, "p", false, "(-p) Scrape previous business days announcements (shorthand)")
 
+	flag.StringVar(modelName, "m", "gemini-3-pro-preview", "Gemini model to use for analysis (e.g., 'gemini-2.5-flash', 'gemini-3-pro-preview') (shorthand)")
+	flag.StringVar(geminiApiKey, "g", "", "Gemini API Key for generating AI summaries (shorthand)")
+
 	flag.Usage = func() {
 		flagSet := flag.CommandLine
-		fmt.Printf("Custom Usage of %s:\n", "myprogram")
+		fmt.Printf("Custom Usage of %s:\n", "annscraper")
 
 		order := []string{
 			"keywords",
 			"price-sensitive",
 			"previous",
+			"gemini-key",
+			"model",
 			"smtp-server",
 			"smtp-port",
 			"smtp-user",
@@ -121,18 +129,25 @@ func main() {
 		return historyManager.FilterNewMatches(ann, foundKeywords)
 	}
 
-	newMatches := asx.ProcessAnnouncements(announcements, keywords, filterFunc)
+	annotatedMatches := asx.ProcessAnnouncements(announcements, keywords, filterFunc, *geminiApiKey, *modelName)
 
-	if len(newMatches) == 0 {
+	var coreMatches []types.Match
+	for _, am := range annotatedMatches {
+		coreMatches = append(coreMatches, am.Match)
+	}
+
+	if len(annotatedMatches) == 0 {
 		fmt.Println("\n-------------------------------------------")
 		fmt.Println("No new matching keywords found in any announcement today.")
 		fmt.Println("-------------------------------------------")
 	} else {
-		notify.ReportMatches(newMatches, historyManager.HistoryFilePath())
+		// Report new matches using the annotated data
+		notify.ReportMatches(annotatedMatches, historyManager.HistoryFilePath())
+
 		if emailConfig.Enabled {
-			notify.EmailMatches(newMatches, emailConfig)
+			notify.EmailMatches(annotatedMatches, emailConfig)
 		}
 	}
 
-	historyManager.RecordMatches(newMatches)
+	historyManager.RecordMatches(coreMatches)
 }
