@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"google.golang.org/genai"
 )
@@ -33,6 +32,7 @@ You have access to Google Search. You must use the search tool when analyzing co
 You can also obtain data from or verify information against the following domains:
 afr.com
 yahoo.finance.com
+quickfs.net
 asx.com.au
 smallcaps.com.au
 livewiremarkets.com
@@ -44,8 +44,14 @@ x.com
 ---
 [CRITICAL INSTRUCTION]
 For all "potential_catalysts", the "Details" field MUST contain specific, verifiable **quantitative data** regarding the mispricing or transaction terms. Prioritize data that shows:
-1.  **Discount/Premium to Valuation:** Price relative to NAV, Book Value (BV), or implied fair value.
+1.  **Discount/Premium to Valuation:** Price relative to Net Asset Value (NAV), Net Present Value (NPV), Book Value (BV), or implied fair value.
 2.  **Insider/Sophisticate Economics:** The specific price or discount at which insiders/major funds are buying/selling/rolling.
+3.  **Date-Specific Events:** Key dates (e.g., record date, payment date, meeting date) that create time-sensitive opportunities.
+4.  **Comparative Metrics:** Ratios or multiples (e.g., EV/EBITDA, EV/FCF) that highlight mispricing relative to peers or historical norms.
+5.  **Terms of the Deal:** Specific terms (e.g., conversion ratios, exercise prices, premiums) that create value opportunities.
+6.  **Recovery Estimates:** In distress situations, provide estimated recovery rates or creditor recoveries based on available data.
+7.  **Insider Holdings:** Exact share counts, percentages, or transaction sizes for insider/major investor activity.
+8.  **Tax Implications:** Quantifiable tax benefits or impacts that affect valuation.
 
 Avoid generic statements. All claims must be tied to a number, date, or specific condition.
 ---
@@ -69,6 +75,12 @@ Avoid generic statements. All claims must be tied to a number, date, or specific
 ### Insider and Major Investor Activity:
 * **Insider Activity:** Detail any large insider buying or selling by directors/management.
 * **Major Investor Activity:** Note any new investment or significant buying/selling by major institutional funds or respected financiers.
+
+### Geological and Economic Indicators:
+* **Quantified Geological Success:** Report on huge drill grades (e.g., "40m @ 10 g/t Au"), high-grade intercepts, or significant assay results that materially increase resource potential. Quantify the grade and thickness.
+* **Economic Study Upgrades:** Identify material improvements or announcements related to Scoping Studies, Pre-Feasibility Studies (PFS), or Definitive Feasibility Studies (DFS). Focus on large, high-grade resources, with high IRR and short payback periods.
+* **Resource/Reserve Upgrade:** Note increases in JORC-compliant resource or reserve estimates. Quantify the percentage increase or the total final tonnage/grade.
+* **Valuation/Discount:** Quantify the company's current valuation relative to its reported project NPV (e.g., "Trading at a 60% discount to post-tax NPV").
 `
 
 func GenerateSummary(text string, apiKey string, modelName string) (*AIAnalysis, error) {
@@ -119,19 +131,11 @@ func GenerateSummary(text string, apiKey string, modelName string) (*AIAnalysis,
 		return nil, fmt.Errorf("gemini API call failed: %w", err)
 	}
 
-	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-		return nil, fmt.Errorf("gemini returned no content")
-	}
-
-	rawText := resp.Text()
-	jsonText := strings.TrimSpace(rawText)
-	jsonText = strings.TrimPrefix(jsonText, "```json")
-	jsonText = strings.TrimSuffix(jsonText, "```")
-	jsonText = strings.TrimSpace(jsonText)
+	respText := resp.Text()
 
 	var analysis AIAnalysis
-	if err := json.Unmarshal([]byte(jsonText), &analysis); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal gemini JSON response: %w. Raw text: %s", err, jsonText)
+	if err := json.Unmarshal([]byte(respText), &analysis); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal gemini JSON response: %w. Raw text: %s", err, respText)
 	}
 
 	return &analysis, nil
