@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/shanehull/annscraper/compare/v0.1.0...v0.2.0) (2025-11-27)
+
+
+### Features
+
+* add ai summary and catalysts ([4f394ae](https://github.com/shanehull/annscraper/commit/4f394aeb3376b946856d17e764bd1f814159af46))
+* add ai summary and catalysts ([cde56b1](https://github.com/shanehull/annscraper/commit/cde56b1127a420d153f18417f6c49c18bd9fd8f9))
+
 ## [0.1.0](https://github.com/shanehull/annscraper/compare/v0.0.3...v0.1.0) (2025-11-19)
 
 
