@@ -1,3 +1,6 @@
+/*
+Package history provides functionality to manage the history of reported announcements.
+*/
 package history
 
 import (
@@ -12,8 +15,10 @@ import (
 	"github.com/shanehull/annscraper/internal/types"
 )
 
-const historyFileName = "asx_report_history.json"
-const historyDirName = "annscraper"
+const (
+	historyFileName = "asx_report_history.json"
+	historyDirName  = "annscraper"
+)
 
 type History struct {
 	ReportDate      string
@@ -29,7 +34,7 @@ type Manager struct {
 
 func NewManager(tzName string) (*Manager, error) {
 	historyDir := filepath.Join(os.TempDir(), historyDirName)
-	if err := os.MkdirAll(historyDir, 0755); err != nil {
+	if err := os.MkdirAll(historyDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create temporary history directory %s: %w", historyDir, err)
 	}
 	filePath := filepath.Join(historyDir, historyFileName)
@@ -91,7 +96,7 @@ func (m *Manager) saveHistory() {
 		return
 	}
 
-	if err := os.WriteFile(m.historyFilePath, data, 0644); err != nil {
+	if err := os.WriteFile(m.historyFilePath, data, 0o644); err != nil {
 		log.Printf("Error writing history file %s: %v", m.historyFilePath, err)
 	} else {
 		log.Printf("Successfully saved report history to %s.", m.historyFilePath)

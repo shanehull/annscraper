@@ -1,3 +1,6 @@
+/*
+Package asx provides utilities for scraping, processing and annotating ASX announcements.
+*/
 package asx
 
 import (
@@ -5,20 +8,24 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/shanehull/annscraper/internal/ai"
 	"github.com/shanehull/annscraper/internal/types"
 
 	"golang.org/x/net/html"
 )
 
-const asxAnnouncementsTodayURL = "https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
-const asxAnnouncementsPrevURL = "https://www.asx.com.au/asx/v2/statistics/prevBusDayAnns.do"
-const asxBaseURL = "https://www.asx.com.au"
-const asxTermsAction = "/asx/v2/statistics/announcementTerms.do"
-const pdfProcessingTimeout = 60 * time.Second
+const (
+	asxAnnouncementsTodayURL = "https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
+	asxAnnouncementsPrevURL  = "https://www.asx.com.au/asx/v2/statistics/prevBusDayAnns.do"
+	asxBaseURL               = "https://www.asx.com.au"
+	asxTermsAction           = "/asx/v2/statistics/announcementTerms.do"
+	pdfProcessingTimeout     = 60 * time.Second
+)
 
 var client = &http.Client{
 	Timeout: 60 * time.Second,
@@ -35,8 +42,7 @@ func ScrapeAnnouncements(filterPriceSensitive bool, previous bool) ([]types.Anno
 		return nil, fmt.Errorf("failed to fetch URL: %w", err)
 	}
 	defer func() {
-		err := resp.Body.Close()
-		if err != nil {
+		if err = resp.Body.Close(); err != nil {
 			log.Fatal(err)
 		}
 	}()
@@ -163,10 +169,11 @@ func ScrapeAnnouncements(filterPriceSensitive bool, previous bool) ([]types.Anno
 	return announcements, nil
 }
 
-func ProcessAnnouncements(announcements []types.Announcement, keywords []string, filterFn func(types.Announcement, []string) []string) []types.Match {
+func ProcessAnnouncements(announcements []types.Announcement, keywords []string, filterFn func(types.Announcement, []string) []string, geminiAPIKey string, modelName string) []types.AnnotatedMatch {
 	var wg sync.WaitGroup
-	matchChan := make(chan types.Match) // Use types.Match
-	sem := make(chan struct{}, 10)      // Concurrency limit
+	matchChan := make(chan types.AnnotatedMatch)
+
+	sem := make(chan struct{}, 10) // Concurrency limit
 	total := len(announcements)
 	processedCount := 0
 	var processedMutex sync.Mutex
@@ -184,14 +191,17 @@ func ProcessAnnouncements(announcements []types.Announcement, keywords []string,
 			fmt.Printf("\rProcessing... %d/%d (%s) ", processedCount, total, a.Ticker)
 			processedMutex.Unlock()
 
-			match, err := searchAnnouncement(a, keywords, filterFn)
+			match, analysis, err := searchAnnouncement(a, keywords, filterFn, geminiAPIKey, modelName)
 			if err != nil {
 				log.Printf("Error processing %s (%s): %v", a.Ticker, a.Title, err)
 				return
 			}
 
 			if match != nil {
-				matchChan <- *match
+				matchChan <- types.AnnotatedMatch{
+					Match:    *match,
+					Analysis: analysis,
+				}
 			}
 		}(ann)
 	}
@@ -201,15 +211,15 @@ func ProcessAnnouncements(announcements []types.Announcement, keywords []string,
 		close(matchChan)
 	}()
 
-	var matches []types.Match
+	var annotatedMatches []types.AnnotatedMatch
 	for match := range matchChan {
-		matches = append(matches, match)
+		annotatedMatches = append(annotatedMatches, match)
 	}
 	fmt.Printf("\nDone processing.\n")
-	return matches
+	return annotatedMatches
 }
 
-func searchAnnouncement(ann types.Announcement, keywords []string, filterFn func(types.Announcement, []string) []string) (*types.Match, error) {
+func searchAnnouncement(ann types.Announcement, keywords []string, filterFn func(types.Announcement, []string) []string, geminiAPIKey string, modelName string) (*types.Match, *ai.AIAnalysis, error) {
 	var foundKeywords []string
 	lowerTitle := strings.ToLower(ann.Title)
 
@@ -221,19 +231,13 @@ func searchAnnouncement(ann types.Announcement, keywords []string, filterFn func
 
 	text, err := extractTextFromPDF(ann.PDFURL)
 	if err != nil {
-		return nil, fmt.Errorf("PDF text extraction failed: %w", err)
+		return nil, nil, fmt.Errorf("PDF text extraction failed: %w", err)
 	}
 
 	lowerText := strings.ToLower(text)
 
 	for _, keyword := range keywords {
-		isTitleMatch := false
-		for _, fk := range foundKeywords {
-			if fk == keyword {
-				isTitleMatch = true
-				break
-			}
-		}
+		isTitleMatch := slices.Contains(foundKeywords, keyword)
 
 		if !isTitleMatch && strings.Contains(lowerText, keyword) {
 			foundKeywords = append(foundKeywords, keyword)
@@ -241,13 +245,13 @@ func searchAnnouncement(ann types.Announcement, keywords []string, filterFn func
 	}
 
 	if len(foundKeywords) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	newKeywords := filterFn(ann, foundKeywords)
 
 	if len(newKeywords) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	contextKeyword := newKeywords[0]
@@ -259,9 +263,21 @@ func searchAnnouncement(ann types.Announcement, keywords []string, filterFn func
 		contextSnippet = getSnippet(text, contextKeyword)
 	}
 
-	return &types.Match{
+	match := &types.Match{
 		Announcement:  ann,
 		KeywordsFound: newKeywords,
 		Context:       contextSnippet,
-	}, nil
+	}
+
+	var analysis *ai.AIAnalysis
+
+	if geminiAPIKey != "" {
+		var aiErr error
+		analysis, aiErr = ai.GenerateSummary(text, geminiAPIKey, modelName)
+		if aiErr != nil {
+			log.Printf("Warning: AI summary failed for %s: %v", ann.Ticker, aiErr)
+		}
+	}
+
+	return match, analysis, nil
 }

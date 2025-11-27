@@ -25,15 +25,9 @@ func getSnippet(fullText string, keyword string) string {
 		return ""
 	}
 
-	start := index - contextSize
-	if start < 0 {
-		start = 0
-	}
+	start := max(index-contextSize, 0)
 
-	end := index + len(lowerKeyword) + contextSize
-	if end > len(fullText) {
-		end = len(fullText)
-	}
+	end := min(index+len(lowerKeyword)+contextSize, len(fullText))
 
 	snippet := fullText[start:end]
 
@@ -53,8 +47,7 @@ func extractTextFromPDF(asxTriggerURL string) (string, error) {
 		return "", fmt.Errorf("failed initial GET to %s: %w", asxTriggerURL, err)
 	}
 	defer func() {
-		err := resp.Body.Close()
-		if err != nil {
+		if err = resp.Body.Close(); err != nil {
 			log.Fatal(err)
 		}
 	}()
@@ -99,8 +92,7 @@ func extractTextFromPDF(asxTriggerURL string) (string, error) {
 		return "", fmt.Errorf("failed to download final PDF from %s: %w", finalPDFURL, err)
 	}
 	defer func() {
-		err := pdfResp.Body.Close()
-		if err != nil {
+		if err = pdfResp.Body.Close(); err != nil {
 			log.Fatal(err)
 		}
 	}()
@@ -139,7 +131,7 @@ func extractTextFromPDF(asxTriggerURL string) (string, error) {
 			}
 		}()
 
-		if err := os.WriteFile(tmpFileName, pdfBytes, 0644); err != nil {
+		if err := os.WriteFile(tmpFileName, pdfBytes, 0o644); err != nil {
 			errChan <- fmt.Errorf("failed to write PDF bytes to temp file: %w", err)
 			return
 		}
