@@ -76,7 +76,7 @@ Avoid generic statements. All claims must be tied to a number, date, or specific
 * **Insider Activity:** Detail any large insider buying or selling by directors/management.
 * **Major Investor Activity:** Note any new investment or significant buying/selling by major institutional funds or respected financiers.
 
-### Geological and Economic Indicators:
+### Geological and Economic Indicators (Metals & Mining):
 * **Quantified Geological Success:** Report on huge drill grades (e.g., "40m @ 10 g/t Au"), high-grade intercepts, or significant assay results that materially increase resource potential. Quantify the grade and thickness.
 * **Economic Study Upgrades:** Identify material improvements or announcements related to Scoping Studies, Pre-Feasibility Studies (PFS), or Definitive Feasibility Studies (DFS). Focus on large, high-grade resources, with high IRR and short payback periods.
 * **Resource/Reserve Upgrade:** Note increases in JORC-compliant resource or reserve estimates. Quantify the percentage increase or the total final tonnage/grade.
