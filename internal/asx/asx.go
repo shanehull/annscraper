@@ -273,7 +273,7 @@ func searchAnnouncement(ann types.Announcement, keywords []string, filterFn func
 
 	if geminiAPIKey != "" {
 		var aiErr error
-		analysis, aiErr = ai.GenerateSummary(text, geminiAPIKey, modelName)
+		analysis, aiErr = ai.GenerateSummary(ann.Ticker, text, geminiAPIKey, modelName)
 		if aiErr != nil {
 			log.Printf("Warning: AI summary failed for %s: %v", ann.Ticker, aiErr)
 		}
