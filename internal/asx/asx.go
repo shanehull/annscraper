@@ -20,156 +20,98 @@ import (
 )
 
 const (
-	asxAnnouncementsTodayURL = "https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
-	asxAnnouncementsPrevURL  = "https://www.asx.com.au/asx/v2/statistics/prevBusDayAnns.do"
-	asxBaseURL               = "https://www.asx.com.au"
-	asxTermsAction           = "/asx/v2/statistics/announcementTerms.do"
-	pdfProcessingTimeout     = 60 * time.Second
+	asxAnnouncementsTodayURL    = "https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
+	asxAnnouncementsPreviousURL = "https://www.asx.com.au/asx/v2/statistics/prevBusDayAnns.do"
+	asxAnnouncementsByTickerURL = "https://www.asx.com.au/asx/v2/statistics/announcements.do?by=asxCode&timeframe=D&period=M%d&asxCode=%s"
+	asxBaseURL                  = "https://www.asx.com.au"
+	asxTermsAction              = "/asx/v2/statistics/announcementTerms.do"
+	pdfProcessingTimeout        = 60 * time.Second
 )
 
 var client = &http.Client{
 	Timeout: 60 * time.Second,
 }
 
-func ScrapeAnnouncements(filterPriceSensitive bool, previous bool) ([]types.Announcement, error) {
-	asxAnnouncementsURL := asxAnnouncementsTodayURL
-	if previous {
-		asxAnnouncementsURL = asxAnnouncementsPrevURL
+func ScrapeDailyFeed(previousDay bool, filterPriceSensitive bool) ([]types.Announcement, error) {
+	var url string
+	if previousDay {
+		url = asxAnnouncementsPreviousURL
+	} else {
+		url = asxAnnouncementsTodayURL
 	}
 
-	resp, err := client.Get(asxAnnouncementsURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch URL: %w", err)
-	}
-	defer func() {
-		if err = resp.Body.Close(); err != nil {
-			log.Fatal(err)
+	log.Printf("Scraping %s aggregate feed.", func() string {
+		if previousDay {
+			return "previous day's"
 		}
-	}()
+		return "today's"
+	}())
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received non-OK status code: %d", resp.StatusCode)
-	}
-
-	doc, err := html.Parse(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse HTML: %w", err)
-	}
-
-	var announcements []types.Announcement
-	var f func(*html.Node)
-	var inTableBody bool
-
-	processTableCell := func(n *html.Node, tdIndex int, ann *types.Announcement) {
-		var extractText func(*html.Node) string
-		extractText = func(n *html.Node) string {
-			if n.Type == html.TextNode {
-				return n.Data
-			}
-			var sb strings.Builder
-			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				sb.WriteString(extractText(c))
-			}
-			return sb.String()
-		}
-
-		switch tdIndex {
-		case 1: // Ticker
-			ann.Ticker = strings.TrimSpace(extractText(n))
-		case 2: // Date and Time
-			text := strings.TrimSpace(extractText(n))
-			cleanedText := regexp.MustCompile(`[\n\t\r\s\xA0]+`).ReplaceAllString(text, " ")
-			cleanedText = strings.TrimSpace(cleanedText)
-			upperText := strings.ToUpper(cleanedText)
-			t, err := time.Parse("02/01/2006 3:04 PM", upperText)
-			if err == nil {
-				ann.DateTime = t
-			} else {
-				log.Printf("Warning: Failed to parse date string '%s': %v", cleanedText, err)
-			}
-		case 3: // Price Sensitive Marker
-			for _, attr := range n.Attr {
-				if attr.Key == "class" && strings.Contains(attr.Val, "pricesens") {
-					ann.IsPriceSensitive = true
-					break
-				}
-			}
-		case 4: // Announcement Title and PDF Link
-			var aTag *html.Node
-			var findATag func(*html.Node)
-			findATag = func(n *html.Node) {
-				if n.Type == html.ElementNode && n.Data == "a" {
-					aTag = n
-					return
-				}
-				for c := n.FirstChild; c != nil; c = c.NextSibling {
-					if aTag != nil {
-						return
-					}
-					findATag(c)
-				}
-			}
-			findATag(n)
-
-			if aTag != nil {
-				for _, attr := range aTag.Attr {
-					if attr.Key == "href" {
-						ann.PDFURL = asxBaseURL + strings.TrimSpace(attr.Val)
-						break
-					}
-				}
-				var titleBuilder strings.Builder
-				for c := aTag.FirstChild; c != nil; c = c.NextSibling {
-					if c.Type == html.TextNode {
-						text := strings.TrimSpace(c.Data)
-						if text != "" {
-							titleBuilder.WriteString(text)
-						}
-					} else if c.Type == html.ElementNode && c.Data == "br" {
-						break
-					}
-				}
-				ann.Title = strings.TrimSpace(titleBuilder.String())
-			}
-		}
-	}
-
-	var currentAnn types.Announcement
-	f = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "tbody" {
-			inTableBody = true
-		}
-
-		if inTableBody {
-			if n.Type == html.ElementNode && n.Data == "tr" {
-				currentAnn = types.Announcement{} // Use types.Announcement
-				tdCount := 0
-				for c := n.FirstChild; c != nil; c = c.NextSibling {
-					if c.Type == html.ElementNode && c.Data == "td" {
-						tdCount++
-						processTableCell(c, tdCount, &currentAnn)
-					}
-				}
-
-				if currentAnn.PDFURL != "" {
-					if filterPriceSensitive && !currentAnn.IsPriceSensitive {
-						return
-					}
-					announcements = append(announcements, currentAnn)
-				}
-			}
-		}
-
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			f(c)
-		}
-	}
-
-	f(doc)
-	return announcements, nil
+	return scrapePage(url, filterPriceSensitive)
 }
 
-func ProcessAnnouncements(announcements []types.Announcement, keywords []string, filterFn func(types.Announcement, []string) []string, geminiAPIKey string, modelName string) []types.AnnotatedMatch {
+func ScrapeHistoric(tickers []string, months int, filterPriceSensitive bool) ([]types.Announcement, error) {
+	var wg sync.WaitGroup
+
+	announcementChan := make(chan []types.Announcement, len(tickers))
+	errChan := make(chan error)
+	sem := make(chan struct{}, 5)
+
+	if len(tickers) == 0 {
+		return nil, nil
+	}
+
+	for _, ticker := range tickers {
+		wg.Add(1)
+		sem <- struct{}{}
+
+		go func(t string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			url := fmt.Sprintf(asxAnnouncementsByTickerURL, months, t)
+
+			anns, err := scrapePage(url, filterPriceSensitive)
+			if err != nil {
+				errChan <- fmt.Errorf("ticker %s: %w", t, err)
+				return
+			}
+			announcementChan <- anns
+		}(ticker)
+	}
+
+	go func() {
+		wg.Wait()
+		close(announcementChan)
+		close(errChan)
+	}()
+
+	var allAnnouncements []types.Announcement
+	var firstError error
+
+	for resultsCollected := 0; resultsCollected < len(tickers); {
+		select {
+		case anns, ok := <-announcementChan:
+			if ok {
+				allAnnouncements = append(allAnnouncements, anns...)
+				resultsCollected++
+			}
+		case err := <-errChan:
+			if err != nil && firstError == nil {
+				firstError = err
+			}
+			resultsCollected++
+		}
+	}
+
+	if firstError != nil {
+		return nil, firstError
+	}
+
+	return allAnnouncements, nil
+}
+
+func ProcessAnnouncements(announcements []types.Announcement, keywords []string, tickers []string, filterFn func(types.Announcement, []string) []string, geminiAPIKey string, modelName string) []types.AnnotatedMatch {
 	var wg sync.WaitGroup
 	matchChan := make(chan types.AnnotatedMatch)
 
@@ -191,7 +133,7 @@ func ProcessAnnouncements(announcements []types.Announcement, keywords []string,
 			fmt.Printf("\rProcessing... %d/%d (%s) ", processedCount, total, a.Ticker)
 			processedMutex.Unlock()
 
-			match, analysis, err := searchAnnouncement(a, keywords, filterFn, geminiAPIKey, modelName)
+			match, analysis, err := filterAndAnnotate(a, keywords, tickers, filterFn, geminiAPIKey, modelName)
 			if err != nil {
 				log.Printf("Error processing %s (%s): %v", a.Ticker, a.Title, err)
 				return
@@ -219,14 +161,14 @@ func ProcessAnnouncements(announcements []types.Announcement, keywords []string,
 	return annotatedMatches
 }
 
-func searchAnnouncement(ann types.Announcement, keywords []string, filterFn func(types.Announcement, []string) []string, geminiAPIKey string, modelName string) (*types.Match, *ai.AIAnalysis, error) {
-	var foundKeywords []string
-	lowerTitle := strings.ToLower(ann.Title)
-
-	for _, keyword := range keywords {
-		if strings.Contains(lowerTitle, keyword) {
-			foundKeywords = append(foundKeywords, keyword)
+func filterAndAnnotate(ann types.Announcement, keywords []string, tickers []string, filterFn func(types.Announcement, []string) []string, geminiAPIKey string, modelName string) (*types.Match, *ai.AIAnalysis, error) {
+	tickerMatch := false
+	if len(tickers) > 0 {
+		tickerMap := make(map[string]struct{})
+		for _, t := range tickers {
+			tickerMap[t] = struct{}{}
 		}
+		_, tickerMatch = tickerMap[ann.Ticker]
 	}
 
 	text, err := extractTextFromPDF(ann.PDFURL)
@@ -234,33 +176,48 @@ func searchAnnouncement(ann types.Announcement, keywords []string, filterFn func
 		return nil, nil, fmt.Errorf("PDF text extraction failed: %w", err)
 	}
 
-	lowerText := strings.ToLower(text)
+	var foundKeywords []string
 
-	for _, keyword := range keywords {
-		isTitleMatch := slices.Contains(foundKeywords, keyword)
+	if len(keywords) > 0 {
+		lowerTitle := strings.ToLower(ann.Title)
+		lowerText := strings.ToLower(text)
 
-		if !isTitleMatch && strings.Contains(lowerText, keyword) {
-			foundKeywords = append(foundKeywords, keyword)
+		// Title search
+		for _, keyword := range keywords {
+			if strings.Contains(lowerTitle, keyword) {
+				foundKeywords = append(foundKeywords, keyword)
+			}
+		}
+
+		// Body search
+		for _, keyword := range keywords {
+			isTitleMatch := slices.Contains(foundKeywords, keyword)
+			if !isTitleMatch && strings.Contains(lowerText, keyword) {
+				foundKeywords = append(foundKeywords, keyword)
+			}
 		}
 	}
 
-	if len(foundKeywords) == 0 {
+	if len(foundKeywords) == 0 && !tickerMatch {
 		return nil, nil, nil
 	}
 
 	newKeywords := filterFn(ann, foundKeywords)
 
-	if len(newKeywords) == 0 {
-		return nil, nil, nil
-	}
-
-	contextKeyword := newKeywords[0]
+	contextKeyword := ""
 	contextSnippet := ""
 
-	if strings.Contains(lowerTitle, contextKeyword) {
-		contextSnippet = ann.Title + " (Match found in title)"
+	if len(newKeywords) > 0 {
+		contextKeyword = newKeywords[0]
+
+		lowerTitle := strings.ToLower(ann.Title)
+		if strings.Contains(lowerTitle, contextKeyword) {
+			contextSnippet = ann.Title + " (Match found in title)"
+		} else {
+			contextSnippet = getSnippet(text, contextKeyword)
+		}
 	} else {
-		contextSnippet = getSnippet(text, contextKeyword)
+		contextSnippet = "Match found based on ticker only."
 	}
 
 	match := &types.Match{
@@ -280,4 +237,140 @@ func searchAnnouncement(ann types.Announcement, keywords []string, filterFn func
 	}
 
 	return match, analysis, nil
+}
+
+func scrapePage(url string, filterPriceSensitive bool) ([]types.Announcement, error) {
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch URL %s: %w", url, err)
+	}
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			log.Printf("Warning: Failed to close response body for %s: %v", url, err)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("received non-OK status code %d from %s", resp.StatusCode, url)
+	}
+
+	doc, err := html.Parse(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse HTML from %s: %w", url, err)
+	}
+
+	var announcements []types.Announcement
+	var f func(*html.Node)
+	var inTableBody bool
+	var currentAnn types.Announcement
+
+	processTableCell := func(n *html.Node, tdIndex int, ann *types.Announcement) {
+		var extractText func(*html.Node) string
+		extractText = func(n *html.Node) string {
+			if n.Type == html.TextNode {
+				return n.Data
+			}
+			var sb strings.Builder
+			for c := n.FirstChild; c != nil; c = c.NextSibling {
+				sb.WriteString(extractText(c))
+			}
+			return sb.String()
+		}
+
+		switch tdIndex {
+		case 1: // Ticker
+			ann.Ticker = strings.TrimSpace(extractText(n))
+		case 2: // Date and Time
+			text := strings.TrimSpace(extractText(n))
+			cleanedText := regexp.MustCompile(`[\n\t\r\s\xA0]+`).ReplaceAllString(text, " ")
+			cleanedText = strings.TrimSpace(cleanedText)
+			upperText := strings.ToUpper(cleanedText)
+
+			t, err := time.Parse("02/01/2006 3:04 PM", upperText)
+			if err == nil {
+				ann.DateTime = t
+			} else {
+				log.Printf("Warning: Failed to parse date string '%s': %v", cleanedText, err)
+			}
+		case 3: // Price Sensitive Marker
+			for _, attr := range n.Attr {
+				if attr.Key == "class" && strings.Contains(attr.Val, "pricesens") {
+					ann.IsPriceSensitive = true
+					break
+				}
+			}
+		case 4: // Announcement Title and PDF Link
+			var aTag *html.Node
+			var findATag func(*html.Node)
+
+			findATag = func(n *html.Node) {
+				if n.Type == html.ElementNode && n.Data == "a" {
+					aTag = n
+					return
+				}
+				for c := n.FirstChild; c != nil; c = c.NextSibling {
+					if aTag != nil {
+						return
+					}
+					findATag(c)
+				}
+			}
+			findATag(n)
+
+			if aTag != nil {
+				for _, attr := range aTag.Attr {
+					if attr.Key == "href" {
+						ann.PDFURL = asxBaseURL + strings.TrimSpace(attr.Val)
+						break
+					}
+				}
+
+				var titleBuilder strings.Builder
+				for c := aTag.FirstChild; c != nil; c = c.NextSibling {
+					if c.Type == html.TextNode {
+						text := strings.TrimSpace(c.Data)
+						if text != "" {
+							titleBuilder.WriteString(text)
+						}
+					} else if c.Type == html.ElementNode && c.Data == "br" {
+						break
+					}
+				}
+				ann.Title = strings.TrimSpace(titleBuilder.String())
+			}
+		}
+	}
+
+	f = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "tbody" {
+			inTableBody = true
+		}
+
+		if inTableBody {
+			if n.Type == html.ElementNode && n.Data == "tr" {
+				currentAnn = types.Announcement{}
+				tdCount := 0
+				for c := n.FirstChild; c != nil; c = c.NextSibling {
+					if c.Type == html.ElementNode && c.Data == "td" {
+						tdCount++
+						processTableCell(c, tdCount, &currentAnn)
+					}
+				}
+
+				if currentAnn.PDFURL != "" {
+					if filterPriceSensitive && !currentAnn.IsPriceSensitive {
+						return
+					}
+					announcements = append(announcements, currentAnn)
+				}
+			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+
+	f(doc)
+	return announcements, nil
 }
