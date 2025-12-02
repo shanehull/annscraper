@@ -34,6 +34,7 @@ jobs:
       - name: Run scraper
         env:
           KEYWORDS: ${{ vars.KEYWORDS }}
+          TICKERS: ${{ vars.TICKERS }}
           SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -44,6 +45,7 @@ jobs:
         run: |-
           ./annscraper \
             --keywords "$KEYWORDS" \
+            --tickers "$TICKERS" \
             --smtp-server "$SMTP_SERVER" \
             --smtp-pass "$SMTP_PASSWORD" \
             --smtp-user "$SMTP_USER" \
@@ -51,4 +53,5 @@ jobs:
             --to-email "$TO_EMAIL" \
             --gemini-key "$GEMINI_API_KEY" \
             --model "$MODEL" \
-            --price-sensitive
+            --price-sensitive \
+            --quiet
