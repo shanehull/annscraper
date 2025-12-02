@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	historyFileName = "asx_report_history.json"
-	historyDirName  = "annscraper"
+	historyFileName        = "asx_report_history.json"
+	historyDirName         = "annscraper"
+	tickerMatchPlaceholder = "__TICKER_MATCHED__"
 )
 
 type History struct {
@@ -103,13 +104,25 @@ func (m *Manager) saveHistory() {
 	}
 }
 
-func (m *Manager) FilterNewMatches(ann types.Announcement, foundKeywords []string) []string {
+func (m *Manager) FilterNewMatches(ann types.Announcement, foundKeywords []string, isTickerMatch bool) []string {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	key := ann.Ticker + "|" + ann.Title
-
 	reportedKws, exists := m.history.ReportedMatches[key]
+
+	if isTickerMatch && len(foundKeywords) == 0 {
+		if exists && reportedKws[tickerMatchPlaceholder] {
+			return nil
+		}
+
+		return []string{tickerMatchPlaceholder}
+	}
+
+	if len(foundKeywords) == 0 {
+		return nil
+	}
+
 	if !exists {
 		return foundKeywords
 	}
@@ -132,6 +145,10 @@ func (m *Manager) RecordMatches(matches []types.Match) {
 
 		if m.history.ReportedMatches[key] == nil {
 			m.history.ReportedMatches[key] = make(map[string]bool)
+		}
+
+		if len(match.KeywordsFound) == 0 && match.TickerMatched {
+			m.history.ReportedMatches[key][tickerMatchPlaceholder] = true
 		}
 
 		for _, kw := range match.KeywordsFound {

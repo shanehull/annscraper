@@ -20,6 +20,7 @@ type Announcement struct {
 type Match struct {
 	Announcement
 	KeywordsFound []string
+	TickerMatched bool
 	Context       string
 }
 

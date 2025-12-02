@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -43,6 +44,7 @@ var (
 	tickersStr           = flag.String("tickers", "", "(-t) Comma-separated list of tickers to match (takes precedence over keywords)")
 	filterPriceSensitive = flag.Bool("price-sensitive", false, "(-s) Process ONLY price sensitive announcements")
 	scrapePrevious       = flag.Bool("previous", false, "(-p) Scrape previous business days announcements")
+	quiet                = flag.Bool("quiet", false, "(-q) Suppress report output to console")
 
 	modelName    = flag.String("model", "gemini-3-pro-preview", "Gemini model to use for analysis (e.g., 'gemini-2.5-flash', 'gemini-3-pro-preview')")
 	geminiAPIKey = flag.String("gemini-key", "", "Gemini API Key for generating AI summaries")
@@ -60,6 +62,7 @@ func init() {
 	flag.StringVar(tickersStr, "t", "", "(-t) Comma-separated list of tickers to match (takes precedence over keywords) (shorthand)")
 	flag.BoolVar(filterPriceSensitive, "s", false, "(-s) Process ONLY price sensitive announcements (shorthand)")
 	flag.BoolVar(scrapePrevious, "p", false, "(-p) Scrape previous business days announcements (shorthand)")
+	flag.BoolVar(quiet, "q", false, "(-q) Suppress report output to console (shorthand)")
 
 	flag.StringVar(modelName, "m", "gemini-3-pro-preview", "Gemini model to use for analysis (e.g., 'gemini-2.5-flash', 'gemini-3-pro-preview') (shorthand)")
 	flag.StringVar(geminiAPIKey, "g", "", "Gemini API Key for generating AI summaries (shorthand)")
@@ -103,7 +106,14 @@ func main() {
 	}
 
 	keywords := parseKeywords(*keywordsStr)
+	if keywords != nil {
+		log.Printf("Filtering for keywords/phrases: [%s]\n", strings.TrimSpace(*keywordsStr))
+	}
+
 	tickers := parseTickers(*tickersStr)
+	if tickers != nil {
+		log.Printf("Filtering for tickers: [%s]\n", strings.ToUpper(strings.TrimSpace(*tickersStr)))
+	}
 
 	emailConfig := notify.EmailConfig{
 		SMTPServer: *smtpServer,
@@ -125,15 +135,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	tickersLog := ""
-	keywordsLog := ""
-	if keywords != nil {
-		tickersLog = fmt.Sprintf("Filtering for keywords/phrases: [%s];", strings.TrimSpace(*keywordsStr))
-	}
-	if tickers != nil {
-		keywordsLog = fmt.Sprintf(" Filtering for tickers: [%s]", strings.ToUpper(strings.TrimSpace(*tickersStr)))
-	}
-	fmt.Printf("Starting ASX Scraper. %s%s\n", tickersLog, keywordsLog)
+	log.Printf("Starting ASX Scraper...")
 
 	announcements, err := asx.ScrapeDailyFeed(*filterPriceSensitive, *scrapePrevious)
 	if err != nil {
@@ -147,10 +149,10 @@ func main() {
 		historyManager.RecordMatches(nil)
 		return
 	}
-	fmt.Printf("Found %d total announcements (price-sensitive: %t). Starting PDF download and search...\n", totalAnns, *filterPriceSensitive)
+	log.Printf("Found %d total announcements (price-sensitive: %t). Starting PDF download and search...\n", totalAnns, *filterPriceSensitive)
 
-	filterFunc := func(ann types.Announcement, foundKeywords []string) []string {
-		return historyManager.FilterNewMatches(ann, foundKeywords)
+	filterFunc := func(ann types.Announcement, foundKeywords []string, isTickerMatch bool) []string {
+		return historyManager.FilterNewMatches(ann, foundKeywords, isTickerMatch)
 	}
 
 	annotatedMatches := asx.ProcessAnnouncements(announcements, keywords, tickers, filterFunc, *geminiAPIKey, *modelName)
@@ -161,12 +163,11 @@ func main() {
 	}
 
 	if len(annotatedMatches) == 0 {
-		fmt.Println("\n-------------------------------------------")
-		fmt.Println("No new matching keywords found in any announcement today.")
-		fmt.Println("-------------------------------------------")
+		log.Println("No new matching keywords found in any announcement today.")
 	} else {
-		// Report new matches using the annotated data
-		notify.ReportMatches(annotatedMatches, historyManager.HistoryFilePath())
+		if !*quiet {
+			notify.ReportMatches(annotatedMatches, historyManager.HistoryFilePath())
+		}
 
 		if emailConfig.Enabled {
 			notify.EmailMatches(annotatedMatches, emailConfig)

@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"google.golang.org/genai"
 )
@@ -23,7 +22,7 @@ type AIAnalysis struct {
 	PotentialCatalysts []CatalystObservation `json:"potential_catalysts"`
 }
 
-func GenerateSummary(ticker string, text string, apiKey string, modelName string) (*AIAnalysis, error) {
+func GenerateSummary(ticker string, text string, historicAnnouncementsList []string, apiKey string, modelName string) (*AIAnalysis, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("gemini API key is required")
 	}
@@ -43,7 +42,7 @@ func GenerateSummary(ticker string, text string, apiKey string, modelName string
 
 	systemContent := &genai.Content{
 		Parts: []*genai.Part{
-			{Text: buildSystemInstruction(ticker)},
+			{Text: buildSystemInstruction(ticker, historicAnnouncementsList)},
 		},
 	}
 
@@ -100,22 +99,4 @@ func getResponseSchema() *genai.Schema {
 		},
 		Required: []string{"summary", "potential_catalysts"},
 	}
-}
-
-func buildSystemInstruction(ticker string) string {
-	var supplementaryURLs []string
-
-	for _, tmpl := range urlTemplates {
-		supplementaryURLs = append(supplementaryURLs, fmt.Sprintf(tmpl, ticker))
-	}
-
-	historicalURL := fmt.Sprintf(historicalURLTemplate, ticker)
-
-	domainListString := strings.Join(supplementaryURLs, "\n")
-
-	return fmt.Sprintf(systemInstructionTemplate,
-		ticker,
-		historicalURL,
-		domainListString,
-	)
 }

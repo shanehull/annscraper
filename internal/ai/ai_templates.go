@@ -26,7 +26,7 @@ Your task is to analyze the provided ASX announcement text (from a PDF) and extr
 
 You have access to Google Search and the company-specific URLs listed below. You must use the search tool and the context URL tool when analyzing corporate actions (M&A, Restructurings, Insider Activity) to cross-reference data from reputable financial news and data sources.
 
-The last 6 months of price-sensitive announcements for %s are available in PDF at the following URLs:
+The last 6 months of ASX PDF announcements for %s are available at the following URLs:
 %s
 
 You must analyze the content of the announcements at the above URLs to better understand any long-term trends (e.g., prior capital raises, director buying) that contextualize the current announcement.
@@ -196,18 +196,17 @@ Before taking any action (either tool calls _or_ responses to the user), you mus
 
 func buildSystemInstruction(ticker string, historicAnnouncements []string) string {
 	var supplementaryURLs []string
-
 	for _, tmpl := range urlTemplates {
 		supplementaryURLs = append(supplementaryURLs, fmt.Sprintf(tmpl, ticker))
 	}
 
-	previousAnnouncementsString := strings.Join(historicAnnouncements, "\n")
+	supplimentaryURLList := strings.Join(supplementaryURLs, "\n")
 
-	domainListString := strings.Join(supplementaryURLs, "\n")
+	historicAnnouncementsList := strings.Join(historicAnnouncements, "\n")
 
 	return fmt.Sprintf(systemInstructionTemplate,
 		ticker,
-		previousAnnouncementsString,
-		domainListString,
+		historicAnnouncementsList,
+		supplimentaryURLList,
 	)
 }
