@@ -53,5 +53,5 @@ jobs:
             --to-email "$TO_EMAIL" \
             --gemini-key "$GEMINI_API_KEY" \
             --model "$MODEL" \
-            --price-sensitive \
-            --quiet
+            --price-sensitive=true \
+            --quiet=true
