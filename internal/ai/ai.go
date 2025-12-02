@@ -54,15 +54,19 @@ You can also obtain data from or verify information against the following compan
 
 ---
 [CATEGORIES]
+### Valuation & Deep Value:
+* **FCF/Earnings Discount:** Identify stocks trading at a deep discount relative to Free Cash Flow (FCF) or Cash Earnings. Focus on FCF Yield and EV/FCF metrics, favouring growth over a longer time horizon.
+* **Book Value/NAV Discount:** Identify stocks trading at a deep discount to Tangible Book Value (BV), Net Asset Value (NAV), or Liquidation Value.
+
 ### Corporate Restructuring & Arbitrage:
-* **Spin-offs & Splits:** Identify spin-offs, partial IPOs, or separations of a division into a new, independent business. Note if **"stub equity"** or mispricing due to lack of investor interest is likely.
-* **Mergers & Acquisitions (Risk Arbitrage):** Note firm bids, schemes of arrangement, or takeovers. Includes analysis of the spread, premium, and **merger securities** (e.g., contingent value rights (CVRs), preference shares) arising from the deal.
+* **Spin-offs & Splits:** Identify spin-offs, partial IPOs, or separations of a division into a new, independent business. Note if "stub equity" or mispricing due to lack of investor interest is likely.
+* **Mergers & Acquisitions (Risk Arbitrage):** Note firm bids, schemes of arrangement, or takeovers. Includes analysis of the spread, premium, and merger securities (e.g., contingent value rights (CVRs), preference shares) arising from the deal. Focus on opportunities that have a merger yield of at least 15%% and/or a favorable upside/downside ratio.
 * **Financial Restructurings:** Identify non-operational changes like major asset sales, portfolio divestitures, or corporate simplification that could lead to market mispricing of the newly focused entity.
 * **Recapitalizations:** Note changes to the capital structure involving debt and equity, such as large debt conversions, debt refinancing, or significant shifts between bond and stock ownership.
 * **Tax Rate Arbitrage:** Identify situations where corporate stock price is affected by its tax position (e.g., REIT conversion, utilization of tax loss carryforwards) creating a profit opportunity.
 
 ### Complex Financing and Warrants:
-* **Rights Offerings & Deep Discounts:** Identify non-renounceable/renounceable rights issues, entitlement offers, or share purchase plans (SPPs), especially when offered at a **deep discount** to the market price.
+* **Rights Offerings & Deep Discounts:** Identify non-renounceable/renounceable rights issues, entitlement offers, or share purchase plans (SPPs), especially when offered at a deep discount to the market price.
 * **Warrants, Options, & Derivatives:** Highlight the issuance or large exercise of warrants or complex option grants that could create a dilution overhang, or identify opportunities in trading **separate warrants/options** that are mispriced relative to the underlying stock.
 * **Complex/Contingent Financing:** Note any issuance of convertible notes, preferred stock, or securities with complex terms (e.g., price ratchets, mandatory conversion features) that offer specific leverage or downside protection.
 
@@ -79,6 +83,56 @@ You can also obtain data from or verify information against the following compan
 * **Economic Study Upgrades:** Identify material improvements or announcements related to Scoping Studies, Pre-Feasibility Studies (PFS), or Definitive Feasibility Studies (DFS). Focus on large, high-grade resources, with high IRR and short payback periods.
 * **Resource/Reserve Upgrade:** Note increases in JORC-compliant resource or reserve estimates. Quantify the percentage increase or the total final tonnage/grade.
 * **Valuation/Discount:** Quantify the company's current valuation relative to its reported project NPV (e.g., "Trading at a 60%% discount to post-tax NPV").
+---
+
+---
+[FORMULAS]
+### Deep Value & FCF Quantifiers:
+* **Free Cash Flow (FCF) Yield:**
+FCF Yield = (FCF per Share) / (Current Share Price)
+
+* **FCF Valuation Multiple:**
+EV/FCF = Enterprise Value / Free Cash Flow
+
+* **Book Value/NAV Discount Percentage:**
+Discount %% = (NAV or BV per Share - Current Share Price) / (NAV or BV per Share)
+
+### Mergers & Acquisitions (Risk Arbitrage):
+* **Merger Yield Calculation:**
+Merger Consideration = Cash Consideration + (Exchange Ratio x Acquiror Share Price) + Net
+Dividends
+Net Spread = Merger Consideration - Current Share Price - Trading Commission - Short Borrow
+Cost
+Merger Yield = (1 + Net Spread / Current Share Price)^(365 / Days Until Completion)-1
+
+* **Upside/Downside/Odds Calculation:**
+Upside = Merger Consideration - Current Share Price
+Downside = Current Share Price - Unaffected Share Price
+Odds of Success = Downside / (Upside + Downside)
+
+### Rights Offerings & Spin-offs:
+* **Theoretical Ex-Rights Price (TERP) (Value of 1 Unit):**
+TERP = (N * Current Share Price + Issue Price) / (N + 1)
+(Where N = Number of existing shares needed to subscribe for 1 new share)
+
+* **Value of a Right:**
+Value of Right = Current Share Price - TERP
+
+* **Stub Equity Valuation (Mispricing Play):**
+Stub Market Cap = Parent Company Market Cap - Value of Spun-Off Subsidiary
+Discount to NAV %% = (NAV per Share - Current Share Price) / NAV per Share
+
+### Warrants, Options, & Debt:
+* **Intrinsic Value of a Warrant (Minimum Value):**
+Intrinsic Value = Max(0, Current Share Price - Exercise Price)
+
+* **Dilution Calculation:**
+Fully Diluted Shares = Current Shares Outstanding + Newly Issued Shares
+Dilution %% = Newly Issued Shares / Fully Diluted Shares
+
+### Financial Distress & Liquidation:
+* **Estimated Creditor Recovery:**
+Creditor Recovery %% = (Estimated Liquidation Value of Assets - Senior Debt) / Unsecured Creditor Claims
 ---
 
 ---
