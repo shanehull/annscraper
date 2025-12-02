@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/shanehull/annscraper/compare/v0.3.0...v0.3.1) (2025-12-02)
+
+
+### Bug Fixes
+
+* no newline on log ([#22](https://github.com/shanehull/annscraper/issues/22)) ([14e5dac](https://github.com/shanehull/annscraper/commit/14e5dacb224dad4757979ce5da70897cc3815ec6))
+* scrape historic takes only single ticker ([#20](https://github.com/shanehull/annscraper/issues/20)) ([f944c2e](https://github.com/shanehull/annscraper/commit/f944c2e5e7a8e8e5fdfe9d867f2ea2b04b8e1204))
+
 ## [0.3.0](https://github.com/shanehull/annscraper/compare/v0.2.0...v0.3.0) (2025-12-02)
 
 
