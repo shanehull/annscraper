@@ -44,65 +44,15 @@ func ScrapeDailyFeed(previousDay bool, filterPriceSensitive bool) ([]types.Annou
 	return scrapePage(url, filterPriceSensitive)
 }
 
-func ScrapeHistoric(tickers []string, months int, filterPriceSensitive bool) ([]types.Announcement, error) {
-	var wg sync.WaitGroup
+func ScrapeHistoric(ticker string, months int, filterPriceSensitive bool) ([]types.Announcement, error) {
+	url := fmt.Sprintf(asxAnnouncementsByTickerURL, months, ticker)
 
-	announcementChan := make(chan []types.Announcement, len(tickers))
-	errChan := make(chan error)
-	sem := make(chan struct{}, 5)
-
-	if len(tickers) == 0 {
-		return nil, nil
+	announcements, err := scrapeHistoricPage(url, ticker, filterPriceSensitive)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scrape historic announcements for %s: %w", ticker, err)
 	}
 
-	for _, ticker := range tickers {
-		wg.Add(1)
-		sem <- struct{}{}
-
-		go func(t string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-
-			url := fmt.Sprintf(asxAnnouncementsByTickerURL, months, t)
-
-			anns, err := scrapeHistoricPage(url, ticker, filterPriceSensitive)
-			if err != nil {
-				errChan <- fmt.Errorf("ticker %s: %w", t, err)
-				return
-			}
-			announcementChan <- anns
-		}(ticker)
-	}
-
-	go func() {
-		wg.Wait()
-		close(announcementChan)
-		close(errChan)
-	}()
-
-	var allAnnouncements []types.Announcement
-	var firstError error
-
-	for resultsCollected := 0; resultsCollected < len(tickers); {
-		select {
-		case anns, ok := <-announcementChan:
-			if ok {
-				allAnnouncements = append(allAnnouncements, anns...)
-				resultsCollected++
-			}
-		case err := <-errChan:
-			if err != nil && firstError == nil {
-				firstError = err
-			}
-			resultsCollected++
-		}
-	}
-
-	if firstError != nil {
-		return nil, firstError
-	}
-
-	return allAnnouncements, nil
+	return announcements, nil
 }
 
 func ProcessAnnouncements(announcements []types.Announcement, keywords []string, tickers []string, filterFn func(types.Announcement, []string, bool) []string, geminiAPIKey string, modelName string) []types.AnnotatedMatch {
@@ -250,7 +200,7 @@ func filterAndAnnotate(ann types.Announcement, keywords []string, tickers []stri
 	if geminiAPIKey != "" {
 		var aiErr error
 
-		historicAnnouncements, err := ScrapeHistoric([]string{ann.Ticker}, 6, true)
+		historicAnnouncements, err := ScrapeHistoric(ann.Ticker, 6, true)
 		if err != nil {
 			log.Printf("Warning: Failed to scrape historic announcements for %s: %v", ann.Ticker, err)
 		}
