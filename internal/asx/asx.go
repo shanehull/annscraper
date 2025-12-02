@@ -41,13 +41,6 @@ func ScrapeDailyFeed(previousDay bool, filterPriceSensitive bool) ([]types.Annou
 		url = asxAnnouncementsTodayURL
 	}
 
-	log.Printf("Scraping %s aggregate feed.", func() string {
-		if previousDay {
-			return "previous day's"
-		}
-		return "today's"
-	}())
-
 	return scrapePage(url, filterPriceSensitive)
 }
 

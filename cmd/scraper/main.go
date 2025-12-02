@@ -131,21 +131,26 @@ func main() {
 
 	historyManager, err := history.NewManager(timezone)
 	if err != nil {
-		fmt.Printf("Fatal error setting up history: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Fatal error setting up history: %v\n", err)
 	}
 
 	log.Printf("Starting ASX Scraper...")
 
+	log.Printf("Scraping %s aggregate feed.", func() string {
+		if *scrapePrevious {
+			return "previous day's"
+		}
+		return "today's"
+	}())
+
 	announcements, err := asx.ScrapeDailyFeed(*filterPriceSensitive, *scrapePrevious)
 	if err != nil {
-		fmt.Printf("Fatal error during scraping: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Fatal error during scraping: %v\n", err)
 	}
 
 	totalAnns := len(announcements)
 	if totalAnns == 0 {
-		fmt.Println("No announcements found today or scraping failed.")
+		log.Println("No announcements found today or scraping failed.")
 		historyManager.RecordMatches(nil)
 		return
 	}
