@@ -41,10 +41,10 @@ func getSnippet(fullText string, keyword string) string {
 	return strings.ReplaceAll(snippet, "\n", " ")
 }
 
-func extractTextFromPDF(asxTriggerURL string) (string, error) {
-	resp, err := client.Get(asxTriggerURL)
+func extractTextFromPDF(pdfURL string) (string, error) {
+	resp, err := client.Get(pdfURL)
 	if err != nil {
-		return "", fmt.Errorf("failed initial GET to %s: %w", asxTriggerURL, err)
+		return "", fmt.Errorf("failed initial GET to %s: %w", pdfURL, err)
 	}
 	defer func() {
 		if err = resp.Body.Close(); err != nil {
@@ -52,56 +52,11 @@ func extractTextFromPDF(asxTriggerURL string) (string, error) {
 		}
 	}()
 
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
-	bodyString := string(bodyBytes)
-
-	finalPDFURL := asxTriggerURL
-
-	// Check and bypass the T&C form if present
-	if strings.Contains(bodyString, asxTermsAction) {
-		re := regexp.MustCompile(`name="pdfURL"\s+value="(.*?)"`)
-		match := re.FindStringSubmatch(bodyString)
-
-		if len(match) < 2 {
-			return "", fmt.Errorf("T&C form detected, but could not find the hidden 'pdfURL' field")
-		}
-
-		directPDFURL := match[1]
-
-		// Submit the "Agree and proceed" form via POST to set the session cookie.
-		formValues := url.Values{
-			"pdfURL":                  {directPDFURL},
-			"showAnnouncementPDFForm": {"Agree and proceed"},
-		}
-
-		termsURL := asxBaseURL + asxTermsAction
-		_, err = client.PostForm(termsURL, formValues)
-		if err != nil {
-			log.Printf("Warning: T&C POST submission failed or redirected unexpectedly: %v", err)
-		}
-
-		finalPDFURL = directPDFURL
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to download PDF: received status code %d from %s", resp.StatusCode, pdfURL)
 	}
 
-	// Download the actual PDF content bytes
-	pdfResp, err := client.Get(finalPDFURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to download final PDF from %s: %w", finalPDFURL, err)
-	}
-	defer func() {
-		if err = pdfResp.Body.Close(); err != nil {
-			log.Fatal(err)
-		}
-	}()
-
-	if pdfResp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to download PDF: received status code %d from %s", pdfResp.StatusCode, finalPDFURL)
-	}
-
-	pdfBytes, err := io.ReadAll(pdfResp.Body)
+	pdfBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("failed to read PDF response body: %w", err)
 	}
@@ -123,7 +78,6 @@ func extractTextFromPDF(asxTriggerURL string) (string, error) {
 		if err != nil {
 			errChan <- fmt.Errorf("failed to close temporary file: %w", err)
 		}
-
 		defer func() {
 			err := os.Remove(tmpFileName)
 			if err != nil {
@@ -136,7 +90,6 @@ func extractTextFromPDF(asxTriggerURL string) (string, error) {
 			return
 		}
 
-		// Execute pdftotext command
 		cmd := exec.CommandContext(ctx, "pdftotext", "-raw", tmpFileName, "-")
 
 		var out bytes.Buffer
@@ -146,7 +99,7 @@ func extractTextFromPDF(asxTriggerURL string) (string, error) {
 
 		if err := cmd.Run(); err != nil {
 			cmdErr := fmt.Errorf("pdftotext failed: %v. Stderr: %s", err, strings.TrimSpace(stderr.String()))
-			if strings.Contains(cmdErr.Error(), "no such file or directory") || strings.Contains(cmdErr.Error(), "not found") {
+			if strings.Contains(cmdErr.Error(), "not found") {
 				errChan <- fmt.Errorf("pdftotext binary not found. Please ensure poppler-utils is installed. Error: %s", strings.TrimSpace(stderr.String()))
 			} else {
 				errChan <- cmdErr
@@ -172,4 +125,49 @@ func extractTextFromPDF(asxTriggerURL string) (string, error) {
 	case <-ctx.Done():
 		return "", fmt.Errorf("PDF text extraction timed out after %s", pdfProcessingTimeout)
 	}
+}
+
+func getPDFURLFromDoURL(doURL string) (string, error) {
+	resp, err := client.Get(doURL)
+	if err != nil {
+		return "", fmt.Errorf("failed initial GET to %s: %w", doURL, err)
+	}
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+	bodyString := string(bodyBytes)
+
+	if strings.Contains(bodyString, asxTermsAction) {
+		re := regexp.MustCompile(`name="pdfURL"\s+value="(.*?)"`)
+		match := re.FindStringSubmatch(bodyString)
+
+		if len(match) < 2 {
+			return "", fmt.Errorf("T&C form detected, but could not find the hidden 'pdfURL' field")
+		}
+
+		directPDFURL := match[1]
+
+		// Submit the "Agree and proceed" form via POST to set the session cookie
+		formValues := url.Values{
+			"pdfURL":                  {directPDFURL},
+			"showAnnouncementPDFForm": {"Agree and proceed"},
+		}
+
+		termsURL := asxBaseURL + asxTermsAction
+		_, err = client.PostForm(termsURL, formValues)
+		if err != nil {
+			log.Printf("Warning: T&C POST submission failed or redirected unexpectedly: %v", err)
+		}
+
+		return directPDFURL, nil
+	}
+
+	return "", fmt.Errorf("no PDF URL found at ASX announcement page %s", doURL)
 }
