@@ -107,12 +107,12 @@ func main() {
 
 	keywords := parseKeywords(*keywordsStr)
 	if keywords != nil {
-		log.Printf("Filtering for keywords/phrases: [%s]\n", strings.TrimSpace(*keywordsStr))
+		log.Printf("Filtering for keywords/phrases: [%s]", strings.TrimSpace(*keywordsStr))
 	}
 
 	tickers := parseTickers(*tickersStr)
 	if tickers != nil {
-		log.Printf("Filtering for tickers: [%s]\n", strings.ToUpper(strings.TrimSpace(*tickersStr)))
+		log.Printf("Filtering for tickers: [%s]", strings.ToUpper(strings.TrimSpace(*tickersStr)))
 	}
 
 	emailConfig := notify.EmailConfig{
@@ -131,7 +131,7 @@ func main() {
 
 	historyManager, err := history.NewManager(timezone)
 	if err != nil {
-		log.Fatalf("Fatal error setting up history: %v\n", err)
+		log.Fatalf("Fatal error setting up history: %v", err)
 	}
 
 	log.Printf("Starting ASX Scraper...")
@@ -145,7 +145,7 @@ func main() {
 
 	announcements, err := asx.ScrapeDailyFeed(*filterPriceSensitive, *scrapePrevious)
 	if err != nil {
-		log.Fatalf("Fatal error during scraping: %v\n", err)
+		log.Fatalf("Fatal error during scraping: %v", err)
 	}
 
 	totalAnns := len(announcements)
@@ -154,7 +154,7 @@ func main() {
 		historyManager.RecordMatches(nil)
 		return
 	}
-	log.Printf("Found %d total announcements (price-sensitive: %t). Starting PDF download and search...\n", totalAnns, *filterPriceSensitive)
+	log.Printf("Found %d total announcements (price-sensitive: %t). Starting PDF download and search...", totalAnns, *filterPriceSensitive)
 
 	filterFunc := func(ann types.Announcement, foundKeywords []string, isTickerMatch bool) []string {
 		return historyManager.FilterNewMatches(ann, foundKeywords, isTickerMatch)

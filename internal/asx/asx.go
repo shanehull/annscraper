@@ -101,7 +101,7 @@ func ProcessAnnouncements(announcements []types.Announcement, keywords []string,
 	for match := range matchChan {
 		annotatedMatches = append(annotatedMatches, match)
 	}
-	log.Printf("Done processing.\n")
+	log.Printf("Done processing")
 	return annotatedMatches
 }
 
