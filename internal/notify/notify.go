@@ -78,18 +78,13 @@ func ReportMatches(matches []types.AnnotatedMatch, historyFilePath string) {
 			}
 		}
 
-		keywordsOutput := ""
-		if match.KeywordsFound != nil {
-			keywordsOutput = fmt.Sprintf("Keywords: %s\n", strings.Join(match.KeywordsFound, ", "))
-		}
-
 		consoleOutput := fmt.Sprintf("\n--- MATCH #%d ---\n", i+1) +
 			fmt.Sprintf("Ticker: %s\n", match.Ticker) +
 			fmt.Sprintf("Title:  %s\n", match.Title) +
 			fmt.Sprintf("Price Sensitive: %t\n", match.IsPriceSensitive) +
 			fmt.Sprintf("Date:   %s\n", match.DateTime.Format("02 Jan 2006 3:04 PM")) +
 			fmt.Sprintf("URL:    %s\n", match.PDFURL) +
-			keywordsOutput +
+			fmt.Sprintf("Keywords: %s\n", strings.Join(match.KeywordsFound, ", ")) +
 			fmt.Sprintf("Context Snippet:\n\t%s\n", match.Context) +
 			aiSummaryOutput +
 			catalystOutput
@@ -129,18 +124,13 @@ func EmailMatches(matches []types.AnnotatedMatch, emailConfig EmailConfig) {
 			}
 		}
 
-		keywordsOutput := ""
-		if match.KeywordsFound != nil {
-			keywordsOutput = strings.Join(match.KeywordsFound, ", ")
-		}
-
 		emailBody := fmt.Sprintf("Ticker: %s\nTitle: %s\nPrice Sensitive: %t\nDate: %s\nURL: %s\n\nKeywords: %s\n\nContext Snippet:\n\t%s\n\n%s\n%s",
 			match.Ticker,
 			match.Title,
 			match.IsPriceSensitive,
 			match.DateTime.Format("02 Jan 2006 3:04 PM"),
 			match.PDFURL,
-			keywordsOutput,
+			strings.Join(match.KeywordsFound, ", "),
 			match.Context,
 			aiSummaryOutput,
 			catalystOutput,
