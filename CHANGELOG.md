@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/shanehull/annscraper/compare/v0.3.1...v0.3.2) (2025-12-02)
+
+
+### Bug Fixes
+
+* price sensitive and prev bug ([#23](https://github.com/shanehull/annscraper/issues/23)) ([e74f2ed](https://github.com/shanehull/annscraper/commit/e74f2ede19ff30f6a5d7817444fe964138273726))
+
 ## [0.3.1](https://github.com/shanehull/annscraper/compare/v0.3.0...v0.3.1) (2025-12-02)
 
 
