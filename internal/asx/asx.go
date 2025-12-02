@@ -66,11 +66,11 @@ func ProcessAnnouncements(announcements []types.Announcement, keywords []string,
 
 	for _, ann := range announcements {
 		wg.Add(1)
-		sem <- struct{}{} // Acquire token
+		sem <- struct{}{}
 
 		go func(a types.Announcement) {
 			defer wg.Done()
-			defer func() { <-sem }() // Release token
+			defer func() { <-sem }()
 
 			processedMutex.Lock()
 			processedCount++
@@ -338,10 +338,9 @@ func scrapePage(url string, filterPriceSensitive bool) ([]types.Announcement, er
 				}
 
 				if currentAnn.PDFURL != "" {
-					if filterPriceSensitive && !currentAnn.IsPriceSensitive {
-						return
+					if !filterPriceSensitive || currentAnn.IsPriceSensitive {
+						announcements = append(announcements, currentAnn)
 					}
-					announcements = append(announcements, currentAnn)
 				}
 			}
 		}
@@ -485,10 +484,9 @@ func scrapeHistoricPage(url string, tickerCode string, filterPriceSensitive bool
 				}
 
 				if currentAnn.PDFURL != "" {
-					if filterPriceSensitive && !currentAnn.IsPriceSensitive {
-						return
+					if !filterPriceSensitive || currentAnn.IsPriceSensitive {
+						announcements = append(announcements, currentAnn)
 					}
-					announcements = append(announcements, currentAnn)
 				}
 			}
 		}

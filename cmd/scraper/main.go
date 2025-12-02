@@ -143,7 +143,7 @@ func main() {
 		return "today's"
 	}())
 
-	announcements, err := asx.ScrapeDailyFeed(*filterPriceSensitive, *scrapePrevious)
+	announcements, err := asx.ScrapeDailyFeed(*scrapePrevious, *filterPriceSensitive)
 	if err != nil {
 		log.Fatalf("Fatal error during scraping: %v", err)
 	}
