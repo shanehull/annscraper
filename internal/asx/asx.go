@@ -33,8 +33,11 @@ var client = &http.Client{
 	Timeout: 60 * time.Second,
 }
 
+type cellProcessorFunc func(n *html.Node, tdIndex int, ann *types.Announcement)
+
 func ScrapeDailyFeed(previousDay bool, filterPriceSensitive bool) ([]types.Announcement, error) {
 	var url string
+
 	if previousDay {
 		url = asxAnnouncementsPreviousURL
 	} else {
@@ -101,7 +104,9 @@ func ProcessAnnouncements(announcements []types.Announcement, keywords []string,
 	for match := range matchChan {
 		annotatedMatches = append(annotatedMatches, match)
 	}
+
 	log.Printf("Done processing")
+
 	return annotatedMatches
 }
 
@@ -239,24 +244,7 @@ func scrapePage(url string, filterPriceSensitive bool) ([]types.Announcement, er
 		return nil, fmt.Errorf("failed to parse HTML from %s: %w", url, err)
 	}
 
-	var announcements []types.Announcement
-	var f func(*html.Node)
-	var inTableBody bool
-	var currentAnn types.Announcement
-
 	processTableCell := func(n *html.Node, tdIndex int, ann *types.Announcement) {
-		var extractText func(*html.Node) string
-		extractText = func(n *html.Node) string {
-			if n.Type == html.TextNode {
-				return n.Data
-			}
-			var sb strings.Builder
-			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				sb.WriteString(extractText(c))
-			}
-			return sb.String()
-		}
-
 		switch tdIndex {
 		case 1: // Ticker
 			ann.Ticker = strings.TrimSpace(extractText(n))
@@ -321,37 +309,7 @@ func scrapePage(url string, filterPriceSensitive bool) ([]types.Announcement, er
 		}
 	}
 
-	f = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "tbody" {
-			inTableBody = true
-		}
-
-		if inTableBody {
-			if n.Type == html.ElementNode && n.Data == "tr" {
-				currentAnn = types.Announcement{}
-				tdCount := 0
-				for c := n.FirstChild; c != nil; c = c.NextSibling {
-					if c.Type == html.ElementNode && c.Data == "td" {
-						tdCount++
-						processTableCell(c, tdCount, &currentAnn)
-					}
-				}
-
-				if currentAnn.PDFURL != "" {
-					if !filterPriceSensitive || currentAnn.IsPriceSensitive {
-						announcements = append(announcements, currentAnn)
-					}
-				}
-			}
-		}
-
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			f(c)
-		}
-	}
-
-	f(doc)
-	return announcements, nil
+	return traverseAndCollect(doc, filterPriceSensitive, processTableCell)
 }
 
 func scrapeHistoricPage(url string, tickerCode string, filterPriceSensitive bool) ([]types.Announcement, error) {
@@ -374,24 +332,7 @@ func scrapeHistoricPage(url string, tickerCode string, filterPriceSensitive bool
 		return nil, fmt.Errorf("failed to parse HTML from %s: %w", url, err)
 	}
 
-	var announcements []types.Announcement
-	var f func(*html.Node)
-	var inTableBody bool
-	var currentAnn types.Announcement
-
 	processTickerTableCell := func(n *html.Node, tdIndex int, ann *types.Announcement) {
-		var extractText func(*html.Node) string
-		extractText = func(n *html.Node) string {
-			if n.Type == html.TextNode {
-				return n.Data
-			}
-			var sb strings.Builder
-			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				sb.WriteString(extractText(c))
-			}
-			return sb.String()
-		}
-
 		// Ticker is set from the function arg, as it's not in the table
 		ann.Ticker = tickerCode
 
@@ -468,10 +409,37 @@ func scrapeHistoricPage(url string, tickerCode string, filterPriceSensitive bool
 		}
 	}
 
+	return traverseAndCollect(doc, filterPriceSensitive, processTickerTableCell)
+}
+
+func extractText(n *html.Node) string {
+	var extract func(*html.Node) string
+
+	extract = func(n *html.Node) string {
+		if n.Type == html.TextNode {
+			return n.Data
+		}
+		var sb strings.Builder
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			sb.WriteString(extract(c))
+		}
+		return sb.String()
+	}
+
+	return extract(n)
+}
+
+func traverseAndCollect(doc *html.Node, filterPriceSensitive bool, processor cellProcessorFunc) ([]types.Announcement, error) {
+	var announcements []types.Announcement
+	var f func(*html.Node)
+	var inTableBody bool
+	var currentAnn types.Announcement
+
 	f = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "tbody" {
 			inTableBody = true
 		}
+
 		if inTableBody {
 			if n.Type == html.ElementNode && n.Data == "tr" {
 				currentAnn = types.Announcement{}
@@ -479,22 +447,25 @@ func scrapeHistoricPage(url string, tickerCode string, filterPriceSensitive bool
 				for c := n.FirstChild; c != nil; c = c.NextSibling {
 					if c.Type == html.ElementNode && c.Data == "td" {
 						tdCount++
-						processTickerTableCell(c, tdCount, &currentAnn)
+						processor(c, tdCount, &currentAnn)
 					}
 				}
 
 				if currentAnn.PDFURL != "" {
-					if !filterPriceSensitive || currentAnn.IsPriceSensitive {
-						announcements = append(announcements, currentAnn)
+					if filterPriceSensitive && !currentAnn.IsPriceSensitive {
+						return
 					}
+					announcements = append(announcements, currentAnn)
 				}
 			}
 		}
+
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			f(c)
 		}
 	}
 
 	f(doc)
+
 	return announcements, nil
 }
