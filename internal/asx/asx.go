@@ -337,30 +337,18 @@ func scrapeHistoricPage(url string, tickerCode string, filterPriceSensitive bool
 		ann.Ticker = tickerCode
 
 		switch tdIndex {
-		case 1: // Date and Time (Now tdIndex 1)
+		case 1: // Date and Time
 			text := strings.TrimSpace(extractText(n))
-			if text == "" {
-				return
-			} // Safety check
-
 			cleanedText := regexp.MustCompile(`[\n\t\r\s\xA0]+`).ReplaceAllString(text, " ")
 			cleanedText = strings.TrimSpace(cleanedText)
 			upperText := strings.ToUpper(cleanedText)
 
-			var t time.Time
-			var dateErr error
-			t, dateErr = time.Parse("02/01/2006 3:04 PM", upperText)
-
-			if dateErr != nil {
-				// Fallback to date-only format
-				t, dateErr = time.Parse("02/01/2006", strings.Fields(upperText)[0])
-				if dateErr != nil {
-					log.Printf("Warning: Failed to parse date string '%s' with fallback formats: %v", cleanedText, dateErr)
-					return
-				}
+			t, err := time.Parse("02/01/2006 3:04 PM", upperText)
+			if err == nil {
+				ann.DateTime = t
+			} else {
+				log.Printf("Warning: Failed to parse date string '%s': %v", cleanedText, err)
 			}
-			ann.DateTime = t
-
 		case 2: // Price Sensitive Marker (Now tdIndex 2)
 			for _, attr := range n.Attr {
 				if attr.Key == "class" && strings.Contains(attr.Val, "pricesens") {
