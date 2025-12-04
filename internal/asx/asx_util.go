@@ -47,8 +47,8 @@ func extractTextFromPDF(pdfURL string) (string, error) {
 		return "", fmt.Errorf("failed initial GET to %s: %w", pdfURL, err)
 	}
 	defer func() {
-		if err = resp.Body.Close(); err != nil {
-			log.Fatal(err)
+		if cerr := resp.Body.Close(); cerr != nil {
+			log.Printf("Warning: failed to close response body for %s: %v", pdfURL, cerr)
 		}
 	}()
 
@@ -79,9 +79,8 @@ func extractTextFromPDF(pdfURL string) (string, error) {
 			errChan <- fmt.Errorf("failed to close temporary file: %w", err)
 		}
 		defer func() {
-			err := os.Remove(tmpFileName)
-			if err != nil {
-				log.Fatal(err)
+			if rerr := os.Remove(tmpFileName); rerr != nil {
+				log.Printf("Warning: failed to remove temp file %s: %v", tmpFileName, rerr)
 			}
 		}()
 
@@ -133,8 +132,8 @@ func getPDFURLFromDoURL(doURL string) (string, error) {
 		return "", fmt.Errorf("failed initial GET to %s: %w", doURL, err)
 	}
 	defer func() {
-		if err = resp.Body.Close(); err != nil {
-			log.Fatal(err)
+		if cerr := resp.Body.Close(); cerr != nil {
+			log.Printf("Warning: failed to close response body for %s: %v", doURL, cerr)
 		}
 	}()
 
