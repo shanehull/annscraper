@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"regexp"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -110,14 +109,7 @@ func ProcessAnnouncements(announcements []types.Announcement, keywords []string,
 }
 
 func filterAndAnnotate(ann types.Announcement, keywords []string, tickers []string, filterFn func(types.Announcement, []string, bool) []string, geminiAPIKey string, modelName string) (*types.Match, *ai.AIAnalysis, error) {
-	tickerMatch := false
-	if len(tickers) > 0 {
-		tickerMap := make(map[string]struct{})
-		for _, t := range tickers {
-			tickerMap[t] = struct{}{}
-		}
-		_, tickerMatch = tickerMap[ann.Ticker]
-	}
+	tickerMatch := isTickerMatch(ann.Ticker, tickers)
 
 	pdfURL, err := getPDFURLFromDoURL(ann.PDFURL)
 	if err != nil {
@@ -130,67 +122,19 @@ func filterAndAnnotate(ann types.Announcement, keywords []string, tickers []stri
 		return nil, nil, fmt.Errorf("PDF text extraction failed: %w", err)
 	}
 
-	var foundKeywords []string
-
-	if len(keywords) > 0 {
-		lowerTitle := strings.ToLower(ann.Title)
-		lowerText := strings.ToLower(text)
-
-		// Title search
-		for _, keyword := range keywords {
-			if strings.Contains(lowerTitle, keyword) {
-				foundKeywords = append(foundKeywords, keyword)
-			}
-		}
-
-		// Body search
-		for _, keyword := range keywords {
-			isTitleMatch := slices.Contains(foundKeywords, keyword)
-			if !isTitleMatch && strings.Contains(lowerText, keyword) {
-				foundKeywords = append(foundKeywords, keyword)
-			}
-		}
-	}
+	foundKeywords := findKeywords(ann.Title, text, keywords)
 
 	if len(foundKeywords) == 0 && !tickerMatch {
 		return nil, nil, nil
 	}
 
-	historyKeywords := foundKeywords
-
-	if tickerMatch && len(historyKeywords) == 0 {
-		historyKeywords = []string{types.TickerMatchPlaceholder}
-	}
-
-	newKeywords := filterFn(ann, historyKeywords, tickerMatch)
-
+	newKeywords := applyHistoryFilter(ann, foundKeywords, tickerMatch, filterFn)
 	if len(newKeywords) == 0 {
-		return nil, nil, nil // Already reported
+		return nil, nil, nil
 	}
 
-	finalKeywords := newKeywords
-	isPlaceholderMatch := false
-
-	if len(newKeywords) == 1 && newKeywords[0] == types.TickerMatchPlaceholder {
-		finalKeywords = nil
-		isPlaceholderMatch = true
-	}
-
-	contextKeyword := ""
-	contextSnippet := ""
-
-	if len(finalKeywords) > 0 {
-		contextKeyword = finalKeywords[0]
-
-		lowerTitle := strings.ToLower(ann.Title)
-		if strings.Contains(lowerTitle, contextKeyword) {
-			contextSnippet = ann.Title + " (Match found in title)"
-		} else {
-			contextSnippet = getSnippet(text, contextKeyword)
-		}
-	} else if isPlaceholderMatch {
-		contextSnippet = fmt.Sprintf("Match found based on ticker %s only.", ann.Ticker)
-	}
+	finalKeywords, isPlaceholderMatch := normalizePlaceholder(newKeywords)
+	contextSnippet := buildContextSnippet(ann, text, finalKeywords, isPlaceholderMatch)
 
 	match := &types.Match{
 		Announcement:  ann,
@@ -199,28 +143,92 @@ func filterAndAnnotate(ann types.Announcement, keywords []string, tickers []stri
 		Context:       contextSnippet,
 	}
 
-	var analysis *ai.AIAnalysis
-
-	if geminiAPIKey != "" {
-		var aiErr error
-
-		historicAnnouncements, err := ScrapeHistoric(ann.Ticker, 6, true)
-		if err != nil {
-			log.Printf("Warning: Failed to scrape historic announcements for %s: %v", ann.Ticker, err)
-		}
-
-		historicAnnouncementsList := make([]string, 0, len(historicAnnouncements))
-		for _, a := range historicAnnouncements {
-			historicAnnouncementsList = append(historicAnnouncementsList, fmt.Sprintf("%s - %s", a.Title, a.PDFURL))
-		}
-
-		analysis, aiErr = ai.GenerateSummary(ann.Ticker, text, historicAnnouncementsList, geminiAPIKey, modelName)
-		if aiErr != nil {
-			log.Printf("Warning: AI summary failed for %s: %v", ann.Ticker, aiErr)
-		}
-	}
+	analysis := runAIAnalysis(ann.Ticker, text, geminiAPIKey, modelName)
 
 	return match, analysis, nil
+}
+
+func isTickerMatch(ticker string, tickers []string) bool {
+	if len(tickers) == 0 {
+		return false
+	}
+	tickerMap := make(map[string]struct{}, len(tickers))
+	for _, t := range tickers {
+		tickerMap[t] = struct{}{}
+	}
+	_, match := tickerMap[ticker]
+	return match
+}
+
+func findKeywords(title, text string, keywords []string) []string {
+	if len(keywords) == 0 {
+		return nil
+	}
+
+	var found []string
+	lowerTitle := strings.ToLower(title)
+	lowerText := strings.ToLower(text)
+
+	for _, kw := range keywords {
+		if strings.Contains(lowerTitle, kw) {
+			found = append(found, kw)
+		} else if strings.Contains(lowerText, kw) {
+			found = append(found, kw)
+		}
+	}
+	return found
+}
+
+func applyHistoryFilter(ann types.Announcement, foundKeywords []string, tickerMatch bool, filterFn func(types.Announcement, []string, bool) []string) []string {
+	historyKeywords := foundKeywords
+	if tickerMatch && len(historyKeywords) == 0 {
+		historyKeywords = []string{types.TickerMatchPlaceholder}
+	}
+	return filterFn(ann, historyKeywords, tickerMatch)
+}
+
+func normalizePlaceholder(keywords []string) (finalKeywords []string, isPlaceholder bool) {
+	if len(keywords) == 1 && keywords[0] == types.TickerMatchPlaceholder {
+		return nil, true
+	}
+	return keywords, false
+}
+
+func buildContextSnippet(ann types.Announcement, text string, keywords []string, isPlaceholderMatch bool) string {
+	if len(keywords) > 0 {
+		keyword := keywords[0]
+		if strings.Contains(strings.ToLower(ann.Title), keyword) {
+			return ann.Title + " (Match found in title)"
+		}
+		return getSnippet(text, keyword)
+	}
+	if isPlaceholderMatch {
+		return fmt.Sprintf("Match found based on ticker %s only.", ann.Ticker)
+	}
+	return ""
+}
+
+func runAIAnalysis(ticker, text, geminiAPIKey, modelName string) *ai.AIAnalysis {
+	if geminiAPIKey == "" {
+		return nil
+	}
+
+	historicAnnouncements, err := ScrapeHistoric(ticker, 6, true)
+	if err != nil {
+		log.Printf("Warning: Failed to scrape historic announcements for %s: %v", ticker, err)
+	}
+
+	historicList := make([]string, 0, len(historicAnnouncements))
+	for _, a := range historicAnnouncements {
+		historicList = append(historicList, fmt.Sprintf("%s - %s", a.Title, a.PDFURL))
+	}
+
+	analysis, err := ai.GenerateSummary(ticker, text, historicList, geminiAPIKey, modelName)
+	if err != nil {
+		log.Printf("Warning: AI summary failed for %s: %v", ticker, err)
+		return nil
+	}
+	return analysis
 }
 
 func scrapePage(url string, filterPriceSensitive bool) ([]types.Announcement, error) {
