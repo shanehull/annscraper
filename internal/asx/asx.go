@@ -26,7 +26,6 @@ const (
 	asxBaseURL                  = "https://www.asx.com.au"
 	asxTermsAction              = "/asx/v2/statistics/announcementTerms.do"
 	pdfProcessingTimeout        = 60 * time.Second
-	tickerMatchPlaceholder      = "__TICKER_MATCHED__"
 )
 
 var client = &http.Client{
@@ -160,7 +159,7 @@ func filterAndAnnotate(ann types.Announcement, keywords []string, tickers []stri
 	historyKeywords := foundKeywords
 
 	if tickerMatch && len(historyKeywords) == 0 {
-		historyKeywords = []string{tickerMatchPlaceholder}
+		historyKeywords = []string{types.TickerMatchPlaceholder}
 	}
 
 	newKeywords := filterFn(ann, historyKeywords, tickerMatch)
@@ -172,7 +171,7 @@ func filterAndAnnotate(ann types.Announcement, keywords []string, tickers []stri
 	finalKeywords := newKeywords
 	isPlaceholderMatch := false
 
-	if len(newKeywords) == 1 && newKeywords[0] == tickerMatchPlaceholder {
+	if len(newKeywords) == 1 && newKeywords[0] == types.TickerMatchPlaceholder {
 		finalKeywords = nil
 		isPlaceholderMatch = true
 	}
