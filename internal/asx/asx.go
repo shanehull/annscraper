@@ -4,6 +4,7 @@ Package asx provides utilities for scraping, processing and annotating ASX annou
 package asx
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -56,7 +57,7 @@ func ScrapeHistoric(ticker string, months int, filterPriceSensitive bool) ([]typ
 	return announcements, nil
 }
 
-func ProcessAnnouncements(announcements []types.Announcement, keywords []string, tickers []string, filterFn func(types.Announcement, []string, bool) []string, geminiAPIKey string, modelName string) []types.AnnotatedMatch {
+func ProcessAnnouncements(ctx context.Context, announcements []types.Announcement, keywords []string, tickers []string, filterFn func(types.Announcement, []string, bool) []string, geminiAPIKey string, modelName string) []types.AnnotatedMatch {
 	var wg sync.WaitGroup
 	matchChan := make(chan types.AnnotatedMatch)
 
@@ -78,7 +79,7 @@ func ProcessAnnouncements(announcements []types.Announcement, keywords []string,
 			log.Printf("Processing... %d/%d (%s) ", processedCount, total, a.Ticker)
 			processedMutex.Unlock()
 
-			match, analysis, err := filterAndAnnotate(a, keywords, tickers, filterFn, geminiAPIKey, modelName)
+			match, analysis, err := filterAndAnnotate(ctx, a, keywords, tickers, filterFn, geminiAPIKey, modelName)
 			if err != nil {
 				log.Printf("Error processing %s (%s): %v", a.Ticker, a.Title, err)
 				return
@@ -108,7 +109,7 @@ func ProcessAnnouncements(announcements []types.Announcement, keywords []string,
 	return annotatedMatches
 }
 
-func filterAndAnnotate(ann types.Announcement, keywords []string, tickers []string, filterFn func(types.Announcement, []string, bool) []string, geminiAPIKey string, modelName string) (*types.Match, *ai.AIAnalysis, error) {
+func filterAndAnnotate(ctx context.Context, ann types.Announcement, keywords []string, tickers []string, filterFn func(types.Announcement, []string, bool) []string, geminiAPIKey string, modelName string) (*types.Match, *ai.AIAnalysis, error) {
 	tickerMatch := isTickerMatch(ann.Ticker, tickers)
 
 	pdfURL, err := getPDFURLFromDoURL(ann.PDFURL)
@@ -143,7 +144,7 @@ func filterAndAnnotate(ann types.Announcement, keywords []string, tickers []stri
 		Context:       contextSnippet,
 	}
 
-	analysis := runAIAnalysis(ann.Ticker, text, geminiAPIKey, modelName)
+	analysis := runAIAnalysis(ctx, ann.Ticker, text, geminiAPIKey, modelName)
 
 	return match, analysis, nil
 }
@@ -208,7 +209,7 @@ func buildContextSnippet(ann types.Announcement, text string, keywords []string,
 	return ""
 }
 
-func runAIAnalysis(ticker, text, geminiAPIKey, modelName string) *ai.AIAnalysis {
+func runAIAnalysis(ctx context.Context, ticker, text, geminiAPIKey, modelName string) *ai.AIAnalysis {
 	if geminiAPIKey == "" {
 		return nil
 	}
@@ -223,7 +224,7 @@ func runAIAnalysis(ticker, text, geminiAPIKey, modelName string) *ai.AIAnalysis 
 		historicList = append(historicList, fmt.Sprintf("%s - %s", a.Title, a.PDFURL))
 	}
 
-	analysis, err := ai.GenerateSummary(ticker, text, historicList, geminiAPIKey, modelName)
+	analysis, err := ai.GenerateSummary(ctx, ticker, text, historicList, geminiAPIKey, modelName)
 	if err != nil {
 		log.Printf("Warning: AI summary failed for %s: %v", ticker, err)
 		return nil

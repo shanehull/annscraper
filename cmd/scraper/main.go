@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -160,7 +161,8 @@ func main() {
 		return historyManager.FilterNewMatches(ann, foundKeywords, isTickerMatch)
 	}
 
-	annotatedMatches := asx.ProcessAnnouncements(announcements, keywords, tickers, filterFunc, *geminiAPIKey, *modelName)
+	ctx := context.Background()
+	annotatedMatches := asx.ProcessAnnouncements(ctx, announcements, keywords, tickers, filterFunc, *geminiAPIKey, *modelName)
 
 	var coreMatches []types.Match
 	for _, am := range annotatedMatches {

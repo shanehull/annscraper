@@ -22,12 +22,11 @@ type AIAnalysis struct {
 	PotentialCatalysts []CatalystObservation `json:"potential_catalysts"`
 }
 
-func GenerateSummary(ticker string, text string, historicAnnouncementsList []string, apiKey string, modelName string) (*AIAnalysis, error) {
+func GenerateSummary(ctx context.Context, ticker string, text string, historicAnnouncementsList []string, apiKey string, modelName string) (*AIAnalysis, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("gemini API key is required")
 	}
 
-	ctx := context.Background()
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:  apiKey,
 		Backend: genai.BackendGeminiAPI,
