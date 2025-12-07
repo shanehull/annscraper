@@ -152,7 +152,10 @@ func main() {
 	totalAnns := len(announcements)
 	if totalAnns == 0 {
 		log.Println("No announcements found today or scraping failed.")
+
 		historyManager.RecordMatches(nil)
+		log.Printf("Saved history to: %s.", historyManager.HistoryFilePath())
+
 		return
 	}
 	log.Printf("Found %d total announcements (price-sensitive: %t). Starting PDF download and search...", totalAnns, *filterPriceSensitive)
@@ -182,4 +185,5 @@ func main() {
 	}
 
 	historyManager.RecordMatches(coreMatches)
+	log.Printf("Saved history to: %s.", historyManager.HistoryFilePath())
 }

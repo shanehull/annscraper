@@ -98,8 +98,6 @@ func (m *Manager) saveHistory() {
 
 	if err := os.WriteFile(m.historyFilePath, data, 0o644); err != nil {
 		log.Printf("Error writing history file %s: %v", m.historyFilePath, err)
-	} else {
-		log.Printf("Successfully saved report history to %s.", m.historyFilePath)
 	}
 }
 
