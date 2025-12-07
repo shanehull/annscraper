@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/shanehull/annscraper/compare/v0.3.2...v0.4.0) (2025-12-07)
+
+
+### Features
+
+* rich output and email fomating ([#29](https://github.com/shanehull/annscraper/issues/29)) ([e903c74](https://github.com/shanehull/annscraper/commit/e903c74ccfd2ceec68be408ed694dfcaa7ed2bb2))
+
+
+### Bug Fixes
+
+* keyword template email ([#27](https://github.com/shanehull/annscraper/issues/27)) ([b9ffa85](https://github.com/shanehull/annscraper/commit/b9ffa85bb90eeef123112cdc05770e07b4ae9be0))
+
 ## [0.3.2](https://github.com/shanehull/annscraper/compare/v0.3.1...v0.3.2) (2025-12-02)
 
 
