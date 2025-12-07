@@ -67,21 +67,19 @@ func ProcessAnnouncements(ctx context.Context, announcements []types.Announcemen
 	var processedMutex sync.Mutex
 
 	for _, ann := range announcements {
-		wg.Add(1)
 		sem <- struct{}{}
 
-		go func(a types.Announcement) {
-			defer wg.Done()
+		wg.Go(func() {
 			defer func() { <-sem }()
 
 			processedMutex.Lock()
 			processedCount++
-			log.Printf("Processing... %d/%d (%s) ", processedCount, total, a.Ticker)
+			log.Printf("Processing... %d/%d (%s) ", processedCount, total, ann.Ticker)
 			processedMutex.Unlock()
 
-			match, analysis, err := filterAndAnnotate(ctx, a, keywords, tickers, filterFn, geminiAPIKey, modelName)
+			match, analysis, err := filterAndAnnotate(ctx, ann, keywords, tickers, filterFn, geminiAPIKey, modelName)
 			if err != nil {
-				log.Printf("Error processing %s (%s): %v", a.Ticker, a.Title, err)
+				log.Printf("Error processing %s (%s): %v", ann.Ticker, ann.Title, err)
 				return
 			}
 
@@ -91,7 +89,7 @@ func ProcessAnnouncements(ctx context.Context, announcements []types.Announcemen
 					Analysis: analysis,
 				}
 			}
-		}(ann)
+		})
 	}
 
 	go func() {
