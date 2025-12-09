@@ -36,12 +36,12 @@ func GenerateSummary(ctx context.Context, ticker string, text string, historicAn
 	}
 
 	contents := genai.Text(
-		fmt.Sprintf("Analyze the following document text:\n\n---\n%s", text),
+		buildUserPrompt(ticker, text, historicAnnouncementsList),
 	)
 
 	systemContent := &genai.Content{
 		Parts: []*genai.Part{
-			{Text: buildSystemInstruction(ticker, historicAnnouncementsList)},
+			{Text: systemInstruction},
 		},
 	}
 
@@ -63,6 +63,13 @@ func GenerateSummary(ctx context.Context, ticker string, text string, historicAn
 	}
 
 	respText := resp.Text()
+
+	// print url repsonse status
+	if resp.Candidates[0].URLContextMetadata.URLMetadata != nil {
+		fmt.Printf("Gemini response status: %s\n", resp.Candidates[0].URLContextMetadata.URLMetadata[0])
+	} else {
+		fmt.Println("No URL metadata in Gemini response.")
+	}
 
 	var analysis AIAnalysis
 	if err := json.Unmarshal([]byte(respText), &analysis); err != nil {
