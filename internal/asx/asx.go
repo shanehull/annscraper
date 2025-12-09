@@ -222,7 +222,7 @@ func runAIAnalysis(ctx context.Context, ticker, text, geminiAPIKey, modelName st
 		historicList = append(historicList, fmt.Sprintf("%s - %s", a.Title, a.PDFURL))
 	}
 
-	analysis, err := ai.GenerateSummary(ctx, ticker, text, historicList, geminiAPIKey, modelName)
+	analysis, err := ai.GenerateSummary(ctx, ticker, text, historicList[1:], geminiAPIKey, modelName)
 	if err != nil {
 		log.Printf("Warning: AI summary failed for %s: %v", ticker, err)
 		return nil

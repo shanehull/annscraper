@@ -36,12 +36,12 @@ func GenerateSummary(ctx context.Context, ticker string, text string, historicAn
 	}
 
 	contents := genai.Text(
-		fmt.Sprintf("Analyze the following document text:\n\n---\n%s", text),
+		buildUserPrompt(ticker, text, historicAnnouncementsList),
 	)
 
 	systemContent := &genai.Content{
 		Parts: []*genai.Part{
-			{Text: buildSystemInstruction(ticker, historicAnnouncementsList)},
+			{Text: systemInstruction},
 		},
 	}
 

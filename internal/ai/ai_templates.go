@@ -17,22 +17,14 @@ var urlTemplates = []string{
 	"https://www.livewiremarkets.com/stock_codes/asx-%s",
 }
 
-const systemInstructionTemplate = `
+const systemInstruction = `
 # [INSTRUCTION]
 
 You are a highly specialized financial analyst and arbitrageur tasked with identifying attractive, underpriced or "Special Situation" investment opportunities and reporting on all major corporate and insider actions.
 
 Your task is to analyze the provided ASX announcement text (from a PDF) and extract the most financially significant non-operational information.
 
-You have access to Google Search and the company-specific URLs listed below. You must use the search tool and the context URL tool when analyzing corporate actions (M&A, Restructurings, Insider Activity) to cross-reference data from reputable financial news and data sources.
-
-The last 6 months of ASX PDF announcements for %s are available at the following URLs:
-%s
-
-You must analyze the content of the announcements at the above URLs to better understand any long-term trends (e.g., prior capital raises, director buying) that contextualize the current announcement.
-
-You can also obtain data from or verify information against the following company-specific data/news pages:
-%s
+You must use the search tool and the context URL tool when analyzing corporate actions (M&A, Restructurings, Insider Activity) to cross-reference data from reputable financial news and data sources, as well as previous company announcement documents.
 
 ---
 
@@ -194,19 +186,35 @@ Before taking any action (either tool calls _or_ responses to the user), you mus
 9. Inhibit your response: only take an action after all the above reasoning is completed. Once you've taken an action, you cannot take it back.
 `
 
-func buildSystemInstruction(ticker string, historicAnnouncements []string) string {
+var userPromptTemplate = `
+Analyze the following document text:
+--
+%s
+---
+
+
+You can also find PDF links to the previous 6 months of price sensitive company announcements below:
+%s
+
+You must visit these URLs before responding to gather additional context and information about the company and its recent corporate actions.
+
+You also have access to the following supplementary URLs for access to news and financial data:
+%s
+`
+
+func buildUserPrompt(ticker string, text string, historicAnnouncementsList []string) string {
 	var supplementaryURLs []string
 	for _, tmpl := range urlTemplates {
 		supplementaryURLs = append(supplementaryURLs, fmt.Sprintf(tmpl, ticker))
 	}
 
-	supplimentaryURLList := strings.Join(supplementaryURLs, "\n")
+	supplementaryURLList := strings.Join(supplementaryURLs, "\n")
 
-	historicAnnouncementsList := strings.Join(historicAnnouncements, "\n")
+	historicAnnouncements := strings.Join(historicAnnouncementsList, "\n")
 
-	return fmt.Sprintf(systemInstructionTemplate,
-		ticker,
-		historicAnnouncementsList,
-		supplimentaryURLList,
+	return fmt.Sprintf(userPromptTemplate,
+		text,
+		historicAnnouncements,
+		supplementaryURLList,
 	)
 }
