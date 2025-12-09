@@ -64,13 +64,6 @@ func GenerateSummary(ctx context.Context, ticker string, text string, historicAn
 
 	respText := resp.Text()
 
-	// print url repsonse status
-	if resp.Candidates[0].URLContextMetadata.URLMetadata != nil {
-		fmt.Printf("Gemini response status: %s\n", resp.Candidates[0].URLContextMetadata.URLMetadata[0])
-	} else {
-		fmt.Println("No URL metadata in Gemini response.")
-	}
-
 	var analysis AIAnalysis
 	if err := json.Unmarshal([]byte(respText), &analysis); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal gemini JSON response: %w. Raw text: %s", err, respText)
