@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/shanehull/annscraper/compare/v0.4.0...v0.4.1) (2025-12-09)
+
+
+### Bug Fixes
+
+* context in user prompt ([#30](https://github.com/shanehull/annscraper/issues/30)) ([f4008f8](https://github.com/shanehull/annscraper/commit/f4008f83dc3e6c220b21fbef0ef16dd86e742d32))
+
 ## [0.4.0](https://github.com/shanehull/annscraper/compare/v0.3.2...v0.4.0) (2025-12-07)
 
 
