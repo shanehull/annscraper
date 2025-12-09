@@ -106,7 +106,8 @@ const emailHTMLTemplate = `<!DOCTYPE html>
 
     .keyword-tag {
       display: inline-block;
-      padding: 3px 10px;
+      padding: 2px 8px;
+      margin: 2px;
       font-size: 12px;
       font-weight: 500;
       background: #e0f2fe;
