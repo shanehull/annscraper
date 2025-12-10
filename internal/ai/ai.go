@@ -36,7 +36,7 @@ func GenerateSummary(ctx context.Context, ticker string, text string, historicAn
 	}
 
 	contents := genai.Text(
-		buildUserPrompt(ticker, text, historicAnnouncementsList),
+		buildUserPrompt(text, historicAnnouncementsList),
 	)
 
 	systemContent := &genai.Content{
