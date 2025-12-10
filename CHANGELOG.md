@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/shanehull/annscraper/compare/v0.4.1...v0.4.2) (2025-12-10)
+
+
+### Bug Fixes
+
+* reduce urls for url context ([#32](https://github.com/shanehull/annscraper/issues/32)) ([54670a8](https://github.com/shanehull/annscraper/commit/54670a868011c09bb26c7d4cd66487ea9cd01dcd))
+
 ## [0.4.1](https://github.com/shanehull/annscraper/compare/v0.4.0...v0.4.1) (2025-12-09)
 
 
