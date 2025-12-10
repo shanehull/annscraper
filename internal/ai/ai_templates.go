@@ -5,18 +5,6 @@ import (
 	"strings"
 )
 
-var urlTemplates = []string{
-	"https://www.asx.com.au/markets/company/%s",
-	"https://www.afr.com/company/asx/%s",
-	"https://www.afr.com/company/asx/%s/financials",
-	"https://www.afr.com/company/asx/%s/shareholders",
-	"https://www.intelligentinvestor.com.au/shares/asx-%s",
-	"https://au.finance.yahoo.com/quote/%s.AX/news",
-	"https://au.finance.yahoo.com/quote/%s.AX/key-statistics",
-	"https://smallcaps.com.au/stocks/asx-%s",
-	"https://www.livewiremarkets.com/stock_codes/asx-%s",
-}
-
 const systemInstruction = `
 # [INSTRUCTION]
 
@@ -193,28 +181,17 @@ Analyze the following document text:
 ---
 
 
-You can also find PDF links to the previous 6 months of price sensitive company announcements below:
+You can also find links to the PDFs for the previous 3 months of price sensitive company announcements below:
 %s
 
-You must visit these URLs before responding to gather additional context and information about the company and its recent corporate actions.
-
-You also have access to the following supplementary URLs for access to news and financial data:
-%s
+You must use these links to gather any additional context about the company and its recent corporate actions.
 `
 
-func buildUserPrompt(ticker string, text string, historicAnnouncementsList []string) string {
-	var supplementaryURLs []string
-	for _, tmpl := range urlTemplates {
-		supplementaryURLs = append(supplementaryURLs, fmt.Sprintf(tmpl, ticker))
-	}
-
-	supplementaryURLList := strings.Join(supplementaryURLs, "\n")
-
+func buildUserPrompt(text string, historicAnnouncementsList []string) string {
 	historicAnnouncements := strings.Join(historicAnnouncementsList, "\n")
 
 	return fmt.Sprintf(userPromptTemplate,
 		text,
 		historicAnnouncements,
-		supplementaryURLList,
 	)
 }

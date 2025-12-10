@@ -212,7 +212,7 @@ func runAIAnalysis(ctx context.Context, ticker, text, geminiAPIKey, modelName st
 		return nil
 	}
 
-	historicAnnouncements, err := ScrapeHistoric(ticker, 6, true)
+	historicAnnouncements, err := ScrapeHistoric(ticker, 3, true)
 	if err != nil {
 		log.Printf("Warning: Failed to scrape historic announcements for %s: %v", ticker, err)
 	}
