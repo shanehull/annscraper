@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3](https://github.com/shanehull/annscraper/compare/v0.4.2...v0.4.3) (2025-12-18)
+
+
+### Bug Fixes
+
+* update system instruction ([#34](https://github.com/shanehull/annscraper/issues/34)) ([af1fcdc](https://github.com/shanehull/annscraper/commit/af1fcdcaec05a65b6279d32b7aebb50c700ec922))
+
 ## [0.4.2](https://github.com/shanehull/annscraper/compare/v0.4.1...v0.4.2) (2025-12-10)
 
 
