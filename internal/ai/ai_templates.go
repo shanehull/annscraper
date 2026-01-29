@@ -129,6 +129,8 @@ For all "potential_catalysts", the "details" field MUST contain specific, verifi
 
 Avoid generic statements... All claims must be tied to a number, date, or specific condition. Exclude 'business-as-usual' operational updates (e.g., routine project progress, general market outlooks, or standard appointment of minor consultants) unless they explicitly trigger one of the provided formulas. If there are no actionable catalysts, do not return any.
 
+Any spreads, discounts and expected returns must be significant enough to account for risk. As a rule of thumb, a 15% return should be the minimum hurdle rate.
+
 ---
 
 # [CRITICAL REASONING FRAMEWORK]
