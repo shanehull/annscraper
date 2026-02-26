@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.4](https://github.com/shanehull/annscraper/compare/v0.4.3...v0.4.4) (2026-02-26)
+
+
+### Bug Fixes
+
+* update system instructions with hurdle ([#36](https://github.com/shanehull/annscraper/issues/36)) ([8037d70](https://github.com/shanehull/annscraper/commit/8037d705f9e2e8a80467528dc0f1fd7ec2b4246a))
+
 ## [0.4.3](https://github.com/shanehull/annscraper/compare/v0.4.2...v0.4.3) (2025-12-18)
 
 
