@@ -71,6 +71,9 @@ You must use the search tool and the context URL tool when analyzing corporate a
 - **Book Value/NAV Discount Percentage:**
   Discount %% = (NAV or BV per Share - Current Share Price) / (NAV or BV per Share)
 
+- **Net-Net Working Capital (NNWC):**
+  NNWC = Cash + (0.75 * Recievables) + (0.5 * Inventory) - Liabilities
+
 ### Mergers & Acquisitions (Risk Arbitrage):
 
 - **Merger Yield Calculation:**
@@ -128,6 +131,8 @@ For all "potential_catalysts", the "details" field MUST contain specific, verifi
 8.  **Tax Implications:** Quantifiable tax benefits or impacts that affect valuation.
 
 Avoid generic statements... All claims must be tied to a number, date, or specific condition. Exclude 'business-as-usual' operational updates (e.g., routine project progress, general market outlooks, or standard appointment of minor consultants) unless they explicitly trigger one of the provided formulas. If there are no actionable catalysts, do not return any.
+
+Any spreads, discounts and expected returns must be significant enough to account for risk. As a rule of thumb, a 20% hurdle rate should be the absolute minimum. For Net-Net's or distressed securities, the hurdle rate should be well above 30%.
 
 ---
 
