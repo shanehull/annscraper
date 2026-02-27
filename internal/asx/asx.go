@@ -179,7 +179,10 @@ func filterAndAnnotate(ctx context.Context, ann types.Announcement, keywords []s
 		Context:       contextSnippet,
 	}
 
-	analysis := runAIAnalysis(ctx, ann.Ticker, text, geminiAPIKey, modelName)
+	analysis, err := runAIAnalysis(ctx, ann.Ticker, text, geminiAPIKey, modelName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("AI analysis failed: %w", err)
+	}
 
 	return match, analysis, nil
 }
@@ -244,9 +247,9 @@ func buildContextSnippet(ann types.Announcement, text string, keywords []string,
 	return ""
 }
 
-func runAIAnalysis(ctx context.Context, ticker, text, geminiAPIKey, modelName string) *ai.AIAnalysis {
+func runAIAnalysis(ctx context.Context, ticker, text, geminiAPIKey, modelName string) (*ai.AIAnalysis, error) {
 	if geminiAPIKey == "" {
-		return nil
+		return nil, nil
 	}
 
 	historicAnnouncements, err := FetchAnnouncements(FetchParams{
@@ -267,10 +270,9 @@ func runAIAnalysis(ctx context.Context, ticker, text, geminiAPIKey, modelName st
 
 	analysis, err := ai.GenerateSummary(ctx, ticker, text, historicList[1:], geminiAPIKey, modelName)
 	if err != nil {
-		log.Printf("Warning: AI summary failed for %s: %v", ticker, err)
-		return nil
+		return nil, fmt.Errorf("AI summary failed: %w", err)
 	}
-	return analysis
+	return analysis, nil
 }
 
 func fetchAnnouncements(url string, targetDate time.Time) ([]types.Announcement, bool, error) {
