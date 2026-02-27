@@ -254,7 +254,7 @@ func runAIAnalysis(ctx context.Context, ticker, text, geminiAPIKey, modelName st
 		MaxResults:         100,
 	})
 	if err != nil {
-		log.Printf("Warning: Failed to scrape historic announcements for %s: %v", ticker, err)
+		log.Printf("Warning: Failed to fetch historic announcements for %s: %v", ticker, err)
 	}
 
 	// Filter by ticker
