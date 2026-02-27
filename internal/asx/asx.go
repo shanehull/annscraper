@@ -4,58 +4,101 @@ Package asx provides utilities for scraping, processing and annotating ASX annou
 package asx
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
-	"regexp"
+	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/shanehull/annscraper/internal/ai"
 	"github.com/shanehull/annscraper/internal/types"
-
-	"golang.org/x/net/html"
 )
 
 const (
-	asxAnnouncementsTodayURL    = "https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
-	asxAnnouncementsPreviousURL = "https://www.asx.com.au/asx/v2/statistics/prevBusDayAnns.do"
-	asxAnnouncementsByTickerURL = "https://www.asx.com.au/asx/v2/statistics/announcements.do?by=asxCode&timeframe=D&period=M%d&asxCode=%s"
-	asxBaseURL                  = "https://www.asx.com.au"
-	asxTermsAction              = "/asx/v2/statistics/announcementTerms.do"
-	pdfProcessingTimeout        = 60 * time.Second
+	markitAnnouncementsURL = "https://asx.api.markitdigital.com/asx-research/1.0/markets/announcements"
+	markitPDFBaseURL       = "https://cdn-api.markitdigital.com/apiman-gateway/ASX/asx-research/1.0/file"
+	pdfProcessingTimeout   = 120 * time.Second // 2 minutes for PDF text extraction
 )
 
 var client = &http.Client{
-	Timeout: 60 * time.Second,
+	Timeout: 180 * time.Second, // 3 minutes for large PDF downloads
 }
 
-type cellProcessorFunc func(n *html.Node, tdIndex int, ann *types.Announcement)
+type markitAnnouncementsResponse struct {
+	Data struct {
+		Items []struct {
+			Companies []struct {
+				SymbolDisplay string `json:"symbolDisplay"`
+			} `json:"companies"`
+			Date        string `json:"date"`
+			DocumentKey string `json:"documentKey"`
+			Headline    string `json:"headline"`
+			Symbol      string `json:"symbol"`
+		} `json:"items"`
+	} `json:"data"`
+}
 
-func ScrapeDailyFeed(previousDay bool, filterPriceSensitive bool) ([]types.Announcement, error) {
-	var url string
+type FetchParams struct {
+	Date               string
+	PriceSensitiveOnly bool
+	MaxResults         int // 0 = unlimited
+}
 
-	if previousDay {
-		url = asxAnnouncementsPreviousURL
-	} else {
-		url = asxAnnouncementsTodayURL
+func FetchAnnouncements(params FetchParams) ([]types.Announcement, error) {
+	var allAnnouncements []types.Announcement
+	pageSize := 100
+	page := 0
+	var targetDate time.Time
+
+	// Parse target date if provided
+	if params.Date != "" {
+		var err error
+		targetDate, err = time.Parse("2006-01-02", params.Date)
+		if err != nil {
+			return nil, fmt.Errorf("invalid date format: %s (expected YYYY-MM-DD)", params.Date)
+		}
 	}
 
-	return scrapePage(url, filterPriceSensitive)
-}
+	for {
+		var url string
+		if params.Date != "" {
+			url = fmt.Sprintf("%s?summaryCountsDate=%s&page=%d&itemsPerPage=%d&priceSensitiveOnly=%v",
+				markitAnnouncementsURL, params.Date, page, pageSize, params.PriceSensitiveOnly)
+		} else {
+			url = fmt.Sprintf("%s?page=%d&itemsPerPage=%d&priceSensitiveOnly=%v",
+				markitAnnouncementsURL, page, pageSize, params.PriceSensitiveOnly)
+		}
 
-func ScrapeHistoric(ticker string, months int, filterPriceSensitive bool) ([]types.Announcement, error) {
-	url := fmt.Sprintf(asxAnnouncementsByTickerURL, months, ticker)
+		announcements, hasMore, err := fetchAnnouncements(url, targetDate)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch announcements page %d: %w", page, err)
+		}
 
-	announcements, err := scrapeHistoricPage(url, ticker, filterPriceSensitive)
-	if err != nil {
-		return nil, fmt.Errorf("failed to scrape historic announcements for %s: %w", ticker, err)
+		allAnnouncements = append(allAnnouncements, announcements...)
+
+		if !hasMore || len(announcements) < pageSize {
+			break
+		}
+
+		if params.MaxResults > 0 && len(allAnnouncements) >= params.MaxResults {
+			allAnnouncements = allAnnouncements[:params.MaxResults]
+			break
+		}
+
+		page++
 	}
 
-	return announcements, nil
+	return allAnnouncements, nil
 }
+
+
 
 func ProcessAnnouncements(ctx context.Context, announcements []types.Announcement, keywords []string, tickers []string, filterFn func(types.Announcement, []string, bool) []string, geminiAPIKey string, modelName string) []types.AnnotatedMatch {
 	var wg sync.WaitGroup
@@ -109,12 +152,6 @@ func ProcessAnnouncements(ctx context.Context, announcements []types.Announcemen
 
 func filterAndAnnotate(ctx context.Context, ann types.Announcement, keywords []string, tickers []string, filterFn func(types.Announcement, []string, bool) []string, geminiAPIKey string, modelName string) (*types.Match, *ai.AIAnalysis, error) {
 	tickerMatch := isTickerMatch(ann.Ticker, tickers)
-
-	pdfURL, err := getPDFURLFromDoURL(ann.PDFURL)
-	if err != nil {
-		return nil, nil, fmt.Errorf("initial PDF link resolution failed: %w", err)
-	}
-	ann.PDFURL = pdfURL
 
 	text, err := extractTextFromPDF(ann.PDFURL)
 	if err != nil {
@@ -212,14 +249,20 @@ func runAIAnalysis(ctx context.Context, ticker, text, geminiAPIKey, modelName st
 		return nil
 	}
 
-	historicAnnouncements, err := ScrapeHistoric(ticker, 3, true)
+	historicAnnouncements, err := FetchAnnouncements(FetchParams{
+		PriceSensitiveOnly: true,
+		MaxResults:         100,
+	})
 	if err != nil {
 		log.Printf("Warning: Failed to scrape historic announcements for %s: %v", ticker, err)
 	}
 
-	historicList := make([]string, 0, len(historicAnnouncements))
+	// Filter by ticker
+	var historicList []string
 	for _, a := range historicAnnouncements {
-		historicList = append(historicList, fmt.Sprintf("%s - %s", a.Title, a.PDFURL))
+		if a.Ticker == ticker {
+			historicList = append(historicList, fmt.Sprintf("%s - %s", a.Title, a.PDFURL))
+		}
 	}
 
 	analysis, err := ai.GenerateSummary(ctx, ticker, text, historicList[1:], geminiAPIKey, modelName)
@@ -230,10 +273,10 @@ func runAIAnalysis(ctx context.Context, ticker, text, geminiAPIKey, modelName st
 	return analysis
 }
 
-func scrapePage(url string, filterPriceSensitive bool) ([]types.Announcement, error) {
+func fetchAnnouncements(url string, targetDate time.Time) ([]types.Announcement, bool, error) {
 	resp, err := client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch URL %s: %w", url, err)
+		return nil, false, fmt.Errorf("failed to fetch URL %s: %w", url, err)
 	}
 	defer func() {
 		if err = resp.Body.Close(); err != nil {
@@ -242,224 +285,159 @@ func scrapePage(url string, filterPriceSensitive bool) ([]types.Announcement, er
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received non-OK status code %d from %s", resp.StatusCode, url)
+		return nil, false, fmt.Errorf("received non-OK status code %d from %s", resp.StatusCode, url)
 	}
 
-	doc, err := html.Parse(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse HTML from %s: %w", url, err)
+	var respData markitAnnouncementsResponse
+	if err = json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		return nil, false, fmt.Errorf("failed to parse JSON from %s: %w", url, err)
 	}
 
-	processTableCell := func(n *html.Node, tdIndex int, ann *types.Announcement) {
-		switch tdIndex {
-		case 1: // Ticker
-			ann.Ticker = strings.TrimSpace(extractText(n))
-		case 2: // Date and Time
-			text := strings.TrimSpace(extractText(n))
-			cleanedText := regexp.MustCompile(`[\n\t\r\s\xA0]+`).ReplaceAllString(text, " ")
-			cleanedText = strings.TrimSpace(cleanedText)
-			upperText := strings.ToUpper(cleanedText)
-
-			t, err := time.Parse("02/01/2006 3:04 PM", upperText)
-			if err == nil {
-				ann.DateTime = t
-			} else {
-				log.Printf("Warning: Failed to parse date string '%s': %v", cleanedText, err)
-			}
-		case 3: // Price Sensitive Marker
-			for _, attr := range n.Attr {
-				if attr.Key == "class" && strings.Contains(attr.Val, "pricesens") {
-					ann.IsPriceSensitive = true
-					break
-				}
-			}
-		case 4: // Announcement Title and PDF Link
-			var aTag *html.Node
-			var findATag func(*html.Node)
-
-			findATag = func(n *html.Node) {
-				if n.Type == html.ElementNode && n.Data == "a" {
-					aTag = n
-					return
-				}
-				for c := n.FirstChild; c != nil; c = c.NextSibling {
-					if aTag != nil {
-						return
-					}
-					findATag(c)
-				}
-			}
-			findATag(n)
-
-			if aTag != nil {
-				for _, attr := range aTag.Attr {
-					if attr.Key == "href" {
-						ann.PDFURL = asxBaseURL + strings.TrimSpace(attr.Val)
-						break
-					}
-				}
-
-				var titleBuilder strings.Builder
-				for c := aTag.FirstChild; c != nil; c = c.NextSibling {
-					if c.Type == html.TextNode {
-						text := strings.TrimSpace(c.Data)
-						if text != "" {
-							titleBuilder.WriteString(text)
-						}
-					} else if c.Type == html.ElementNode && c.Data == "br" {
-						break
-					}
-				}
-				ann.Title = strings.TrimSpace(titleBuilder.String())
-			}
-		}
-	}
-
-	return traverseAndCollect(doc, filterPriceSensitive, processTableCell)
-}
-
-func scrapeHistoricPage(url string, tickerCode string, filterPriceSensitive bool) ([]types.Announcement, error) {
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch URL %s: %w", url, err)
-	}
-	defer func() {
-		if err = resp.Body.Close(); err != nil {
-			log.Printf("Warning: Failed to close response body for %s: %v", url, err)
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received non-OK status code %d from %s", resp.StatusCode, url)
-	}
-
-	doc, err := html.Parse(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse HTML from %s: %w", url, err)
-	}
-
-	processTickerTableCell := func(n *html.Node, tdIndex int, ann *types.Announcement) {
-		// Ticker is set from the function arg, as it's not in the table
-		ann.Ticker = tickerCode
-
-		switch tdIndex {
-		case 1: // Date and Time
-			text := strings.TrimSpace(extractText(n))
-			cleanedText := regexp.MustCompile(`[\n\t\r\s\xA0]+`).ReplaceAllString(text, " ")
-			cleanedText = strings.TrimSpace(cleanedText)
-			upperText := strings.ToUpper(cleanedText)
-
-			t, err := time.Parse("02/01/2006 3:04 PM", upperText)
-			if err == nil {
-				ann.DateTime = t
-			} else {
-				log.Printf("Warning: Failed to parse date string '%s': %v", cleanedText, err)
-			}
-		case 2: // Price Sensitive Marker (Now tdIndex 2)
-			for _, attr := range n.Attr {
-				if attr.Key == "class" && strings.Contains(attr.Val, "pricesens") {
-					ann.IsPriceSensitive = true
-					break
-				}
-			}
-
-		case 3: // Announcement Title and PDF Link
-			var aTag *html.Node
-			var findATag func(*html.Node)
-			findATag = func(n *html.Node) {
-				if n.Type == html.ElementNode && n.Data == "a" {
-					aTag = n
-					return
-				}
-				for c := n.FirstChild; c != nil; c = c.NextSibling {
-					if aTag != nil {
-						return
-					}
-					findATag(c)
-				}
-			}
-			findATag(n)
-
-			if aTag != nil {
-				for _, attr := range aTag.Attr {
-					if attr.Key == "href" {
-						ann.PDFURL = asxBaseURL + strings.TrimSpace(attr.Val)
-						break
-					}
-				}
-				var titleBuilder strings.Builder
-				for c := aTag.FirstChild; c != nil; c = c.NextSibling {
-					if c.Type == html.TextNode {
-						text := strings.TrimSpace(c.Data)
-						if text != "" {
-							titleBuilder.WriteString(text)
-						}
-					} else if c.Type == html.ElementNode && c.Data == "br" {
-						break
-					}
-				}
-				ann.Title = strings.TrimSpace(titleBuilder.String())
-			}
-		}
-	}
-
-	return traverseAndCollect(doc, filterPriceSensitive, processTickerTableCell)
-}
-
-func extractText(n *html.Node) string {
-	var extract func(*html.Node) string
-
-	extract = func(n *html.Node) string {
-		if n.Type == html.TextNode {
-			return n.Data
-		}
-		var sb strings.Builder
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			sb.WriteString(extract(c))
-		}
-		return sb.String()
-	}
-
-	return extract(n)
-}
-
-func traverseAndCollect(doc *html.Node, filterPriceSensitive bool, processor cellProcessorFunc) ([]types.Announcement, error) {
 	var announcements []types.Announcement
-	var f func(*html.Node)
-	var inTableBody bool
-	var currentAnn types.Announcement
-
-	f = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "tbody" {
-			inTableBody = true
+	for _, item := range respData.Data.Items {
+		if item.DocumentKey == "" {
+			continue
 		}
 
-		if inTableBody {
-			if n.Type == html.ElementNode && n.Data == "tr" {
-				currentAnn = types.Announcement{}
-				tdCount := 0
-				for c := n.FirstChild; c != nil; c = c.NextSibling {
-					if c.Type == html.ElementNode && c.Data == "td" {
-						tdCount++
-						processor(c, tdCount, &currentAnn)
-					}
-				}
+		// Parse date
+		var itemDate time.Time
+		if t, err := time.Parse(time.RFC3339, item.Date); err == nil {
+			itemDate = t
+		} else {
+			log.Printf("Warning: Failed to parse date string '%s': %v", item.Date, err)
+			continue
+		}
 
-				if currentAnn.PDFURL != "" {
-					if filterPriceSensitive && !currentAnn.IsPriceSensitive {
-						return
-					}
-					announcements = append(announcements, currentAnn)
-				}
+		// Filter by target date if provided (compare date part only)
+		if !targetDate.IsZero() {
+			if itemDate.Year() != targetDate.Year() || itemDate.Month() != targetDate.Month() || itemDate.Day() != targetDate.Day() {
+				continue
 			}
 		}
 
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			f(c)
+		ann := types.Announcement{
+			Ticker:           item.Symbol,
+			Title:            item.Headline,
+			IsPriceSensitive: true, // Markit API indicates price sensitive by filtering
+			DateTime:         itemDate,
+			PDFURL:           fmt.Sprintf("%s/%s", markitPDFBaseURL, item.DocumentKey),
 		}
+
+		announcements = append(announcements, ann)
 	}
 
-	f(doc)
+	// Check if there are more results
+	hasMore := len(respData.Data.Items) > 0
+	return announcements, hasMore, nil
+}
 
-	return announcements, nil
+func getSnippet(fullText string, keyword string) string {
+	const contextSize = 50
+
+	lowerText := strings.ToLower(fullText)
+	lowerKeyword := strings.ToLower(keyword)
+
+	index := strings.Index(lowerText, lowerKeyword)
+	if index == -1 {
+		return ""
+	}
+
+	start := max(index-contextSize, 0)
+	end := min(index+len(lowerKeyword)+contextSize, len(fullText))
+
+	snippet := fullText[start:end]
+
+	if start > 0 {
+		snippet = "... " + snippet
+	}
+	if end < len(fullText) {
+		snippet = snippet + " ..."
+	}
+
+	return strings.ReplaceAll(snippet, "\n", " ")
+}
+
+func extractTextFromPDF(pdfURL string) (string, error) {
+	resp, err := client.Get(pdfURL)
+	if err != nil {
+		return "", fmt.Errorf("failed initial GET to %s: %w", pdfURL, err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			log.Printf("Warning: failed to close response body for %s: %v", pdfURL, cerr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to download PDF: received status code %d from %s", resp.StatusCode, pdfURL)
+	}
+
+	pdfBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read PDF response body: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), pdfProcessingTimeout)
+	defer cancel()
+
+	resultChan := make(chan string, 1)
+	errChan := make(chan error, 1)
+
+	go func() {
+		tmpFile, err := os.CreateTemp("", "asx_pdf_*.pdf")
+		if err != nil {
+			errChan <- fmt.Errorf("failed to create temporary file: %w", err)
+			return
+		}
+		tmpFileName := tmpFile.Name()
+		err = tmpFile.Close()
+		if err != nil {
+			errChan <- fmt.Errorf("failed to close temporary file: %w", err)
+		}
+		defer func() {
+			if rerr := os.Remove(tmpFileName); rerr != nil {
+				log.Printf("Warning: failed to remove temp file %s: %v", tmpFileName, rerr)
+			}
+		}()
+
+		if err := os.WriteFile(tmpFileName, pdfBytes, 0o644); err != nil {
+			errChan <- fmt.Errorf("failed to write PDF bytes to temp file: %w", err)
+			return
+		}
+
+		cmd := exec.CommandContext(ctx, "pdftotext", "-raw", tmpFileName, "-")
+
+		var out bytes.Buffer
+		var stderr bytes.Buffer
+		cmd.Stdout = &out
+		cmd.Stderr = &stderr
+
+		if err := cmd.Run(); err != nil {
+			cmdErr := fmt.Errorf("pdftotext failed: %v. Stderr: %s", err, strings.TrimSpace(stderr.String()))
+			if strings.Contains(cmdErr.Error(), "not found") {
+				errChan <- fmt.Errorf("pdftotext binary not found. Please ensure poppler-utils is installed. Error: %s", strings.TrimSpace(stderr.String()))
+			} else {
+				errChan <- cmdErr
+			}
+			return
+		}
+
+		text := out.String()
+
+		if strings.TrimSpace(text) == "" {
+			errChan <- fmt.Errorf("pdftotext extracted empty text string. File may be image-based or protected")
+			return
+		}
+
+		resultChan <- text
+	}()
+
+	select {
+	case text := <-resultChan:
+		return text, nil
+	case err := <-errChan:
+		return "", err
+	case <-ctx.Done():
+		return "", fmt.Errorf("PDF text extraction timed out after %s", pdfProcessingTimeout)
+	}
 }

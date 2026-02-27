@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/shanehull/annscraper/internal/asx"
 	"github.com/shanehull/annscraper/internal/history"
@@ -144,7 +145,15 @@ func main() {
 		return "today's"
 	}())
 
-	announcements, err := asx.ScrapeDailyFeed(*scrapePrevious, *filterPriceSensitive)
+	date := time.Now().Format("2006-01-02")
+	if *scrapePrevious {
+		date = time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	}
+
+	announcements, err := asx.FetchAnnouncements(asx.FetchParams{
+		Date:               date,
+		PriceSensitiveOnly: *filterPriceSensitive,
+	})
 	if err != nil {
 		log.Fatalf("Fatal error during scraping: %v", err)
 	}
