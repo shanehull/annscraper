@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/shanehull/annscraper/compare/v1.0.0...v1.0.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* error announcement when ai analysis fails ([#40](https://github.com/shanehull/annscraper/issues/40)) ([97092ef](https://github.com/shanehull/annscraper/commit/97092ef1c9fa91eddefad74c20ac437e4bdc14db))
+
 ## [1.0.0](https://github.com/shanehull/annscraper/compare/v0.4.4...v1.0.0) (2026-02-27)
 
 
