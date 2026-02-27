@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/shanehull/annscraper/compare/v0.4.4...v1.0.0) (2026-02-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* replace anns page with markit api ([#38](https://github.com/shanehull/annscraper/issues/38))
+
+### Features
+
+* replace anns page with markit api ([#38](https://github.com/shanehull/annscraper/issues/38)) ([7f6219b](https://github.com/shanehull/annscraper/commit/7f6219b931e9ab0ece4826ba20702bf56e3c90f9))
+
 ## [0.4.4](https://github.com/shanehull/annscraper/compare/v0.4.3...v0.4.4) (2026-02-26)
 
 
