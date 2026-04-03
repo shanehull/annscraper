@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Restore history
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         id: cache-history
         with:
           path: /tmp/annscraper/asx_report_history.json
