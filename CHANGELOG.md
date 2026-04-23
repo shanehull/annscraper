@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/shanehull/annscraper/compare/v1.0.2...v1.0.3) (2026-04-23)
+
+
+### Bug Fixes
+
+* always use sydney tz ([#45](https://github.com/shanehull/annscraper/issues/45)) ([6ad3f38](https://github.com/shanehull/annscraper/commit/6ad3f386072f17c221772ce84de0b4b6d58cf999))
+
 ## [1.0.2](https://github.com/shanehull/annscraper/compare/v1.0.1...v1.0.2) (2026-04-23)
 
 
