@@ -145,9 +145,13 @@ func main() {
 		return "today's"
 	}())
 
-	date := time.Now().Format("2006-01-02")
+	date := func() string {
+		loc, _ := time.LoadLocation("Australia/Sydney")
+		return time.Now().In(loc).Format("2006-01-02")
+	}()
 	if *scrapePrevious {
-		date = time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+		loc, _ := time.LoadLocation("Australia/Sydney")
+		date = time.Now().In(loc).AddDate(0, 0, -1).Format("2006-01-02")
 	}
 
 	announcements, err := asx.FetchAnnouncements(asx.FetchParams{
