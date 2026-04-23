@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/shanehull/annscraper/compare/v1.0.1...v1.0.2) (2026-04-23)
+
+
+### Bug Fixes
+
+* historic anns oob issue ([#43](https://github.com/shanehull/annscraper/issues/43)) ([19cf48b](https://github.com/shanehull/annscraper/commit/19cf48bb23c7284987b81bc99cf80d6b3013736e))
+
 ## [1.0.1](https://github.com/shanehull/annscraper/compare/v1.0.0...v1.0.1) (2026-02-27)
 
 
