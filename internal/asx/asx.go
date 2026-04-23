@@ -98,8 +98,6 @@ func FetchAnnouncements(params FetchParams) ([]types.Announcement, error) {
 	return allAnnouncements, nil
 }
 
-
-
 func ProcessAnnouncements(ctx context.Context, announcements []types.Announcement, keywords []string, tickers []string, filterFn func(types.Announcement, []string, bool) []string, geminiAPIKey string, modelName string) []types.AnnotatedMatch {
 	var wg sync.WaitGroup
 	matchChan := make(chan types.AnnotatedMatch)
@@ -268,7 +266,12 @@ func runAIAnalysis(ctx context.Context, ticker, text, geminiAPIKey, modelName st
 		}
 	}
 
-	analysis, err := ai.GenerateSummary(ctx, ticker, text, historicList[1:], geminiAPIKey, modelName)
+	var recentHistoric []string
+	if len(historicList) > 1 {
+		recentHistoric = historicList[1:]
+	}
+
+	analysis, err := ai.GenerateSummary(ctx, ticker, text, recentHistoric, geminiAPIKey, modelName)
 	if err != nil {
 		return nil, fmt.Errorf("AI summary failed: %w", err)
 	}
