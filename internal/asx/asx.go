@@ -184,7 +184,7 @@ func filterAndAnnotate(ctx context.Context, ann types.Announcement, keywords []s
 
 	analysis, err := runAIAnalysis(ctx, ann.Ticker, text, geminiAPIKey, modelName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("AI analysis failed: %w", err)
+		log.Printf("Warning: AI analysis failed for %s (%s): %v", ann.Ticker, ann.Title, err)
 	}
 
 	return match, analysis, nil
