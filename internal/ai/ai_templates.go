@@ -14,7 +14,7 @@ Your task is to analyze the provided ASX announcement text (from a PDF) and extr
 
 You must first provide a summary of the document that is free from assumptions, opinions, or general commentary. Every bullet point in the summary must be directly traceable to a specific sentence or figure in the provided text.
 
-You must use the search tool and the context URL tool when analyzing corporate actions (M&A, Restructurings, Insider Activity) to cross-reference data from reputable financial news and data sources, as well as previous company announcement documents.
+When analyzing corporate actions (M&A, Restructurings, Insider Activity), use the provided historic announcement links for additional context.
 
 ---
 
@@ -181,17 +181,15 @@ Before taking any action (either tool calls _or_ responses to the user), you mus
 9. Inhibit your response: only take an action after all the above reasoning is completed. Once you've taken an action, you cannot take it back.
 `
 
-var userPromptTemplate = `
+	var userPromptTemplate = `
 Analyze the following document text:
 --
 %s
 ---
 
 
-You can also find links to the PDFs for the previous 3 months of price sensitive company announcements below:
+For context, here are the previous 3 months of price sensitive announcements for this company:
 %s
-
-You must use these links to gather any additional context about the company and its recent corporate actions.
 `
 
 func buildUserPrompt(text string, historicAnnouncementsList []string) string {

@@ -35,16 +35,14 @@ func GenerateSummary(ctx context.Context, ticker string, text string, historicAn
 		return nil, fmt.Errorf("failed to create gemini client: %w", err)
 	}
 
-	contents := genai.Text(
-		buildUserPrompt(text, historicAnnouncementsList),
-	)
-
+	prompt := buildUserPrompt(text, historicAnnouncementsList)
 	systemContent := &genai.Content{
 		Parts: []*genai.Part{
 			{Text: systemInstruction},
 		},
 	}
 
+	// First call: tools + user prompt, no schema. Let the model research.
 	tools := []*genai.Tool{
 		{
 			URLContext:   &genai.URLContext{},
@@ -52,21 +50,34 @@ func GenerateSummary(ctx context.Context, ticker string, text string, historicAn
 		},
 	}
 
+	research, err := client.Models.GenerateContent(ctx, modelName, genai.Text(prompt), &genai.GenerateContentConfig{
+		SystemInstruction: systemContent,
+		Tools:             tools,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("gemini research call failed: %w", err)
+	}
+
+	// Second call: research as context + ResponseSchema for structured JSON output.
+	contents := []*genai.Content{
+		{Role: "user", Parts: []*genai.Part{{Text: prompt}}},
+	}
+	if rt := research.Text(); rt != "" {
+		contents = append(contents, &genai.Content{Role: "model", Parts: []*genai.Part{{Text: rt}}})
+	}
+
 	resp, err := client.Models.GenerateContent(ctx, modelName, contents, &genai.GenerateContentConfig{
 		SystemInstruction: systemContent,
 		ResponseMIMEType:  "application/json",
 		ResponseSchema:    getResponseSchema(),
-		Tools:             tools,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gemini API call failed: %w", err)
 	}
 
-	respText := resp.Text()
-
 	var analysis AIAnalysis
-	if err := json.Unmarshal([]byte(respText), &analysis); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal gemini JSON response: %w. Raw text: %s", err, respText)
+	if err := json.Unmarshal([]byte(resp.Text()), &analysis); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal gemini JSON response: %w. Raw text: %s", err, resp.Text()[:min(len(resp.Text()), 500)])
 	}
 
 	return &analysis, nil
