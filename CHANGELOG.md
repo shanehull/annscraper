@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.5](https://github.com/shanehull/annscraper/compare/v1.0.4...v1.0.5) (2026-05-13)
+
+
+### Bug Fixes
+
+* split Gemini call into research and JSON stages ([#50](https://github.com/shanehull/annscraper/issues/50)) ([48e9639](https://github.com/shanehull/annscraper/commit/48e9639c1a5d12f9ff15f7837a2399cebd62da2c))
+
 ## [1.0.4](https://github.com/shanehull/annscraper/compare/v1.0.3...v1.0.4) (2026-05-13)
 
 
