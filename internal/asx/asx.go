@@ -57,6 +57,11 @@ func FetchAnnouncements(params FetchParams) ([]types.Announcement, error) {
 	page := 0
 	var targetDate time.Time
 
+	sydneyLoc, err := time.LoadLocation("Australia/Sydney")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load Australia/Sydney timezone: %w", err)
+	}
+
 	// Parse target date if provided
 	if params.Date != "" {
 		var err error
@@ -76,14 +81,14 @@ func FetchAnnouncements(params FetchParams) ([]types.Announcement, error) {
 				markitAnnouncementsURL, page, pageSize, params.PriceSensitiveOnly)
 		}
 
-		announcements, hasMore, err := fetchAnnouncements(url, targetDate)
+		announcements, hasMore, err := fetchAnnouncements(url, targetDate, sydneyLoc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch announcements page %d: %w", page, err)
 		}
 
 		allAnnouncements = append(allAnnouncements, announcements...)
 
-		if !hasMore || len(announcements) < pageSize {
+		if !hasMore {
 			break
 		}
 
@@ -278,7 +283,7 @@ func runAIAnalysis(ctx context.Context, ticker, text, geminiAPIKey, modelName st
 	return analysis, nil
 }
 
-func fetchAnnouncements(url string, targetDate time.Time) ([]types.Announcement, bool, error) {
+func fetchAnnouncements(url string, targetDate time.Time, sydneyLoc *time.Location) ([]types.Announcement, bool, error) {
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to fetch URL %s: %w", url, err)
@@ -313,9 +318,11 @@ func fetchAnnouncements(url string, targetDate time.Time) ([]types.Announcement,
 			continue
 		}
 
-		// Filter by target date if provided (compare date part only)
+		// Filter by target date if provided — compare in Sydney timezone
+		// because the target date is a Sydney date but the API returns UTC timestamps.
 		if !targetDate.IsZero() {
-			if itemDate.Year() != targetDate.Year() || itemDate.Month() != targetDate.Month() || itemDate.Day() != targetDate.Day() {
+			itemSydneyDate := itemDate.In(sydneyLoc)
+			if itemSydneyDate.Year() != targetDate.Year() || itemSydneyDate.Month() != targetDate.Month() || itemSydneyDate.Day() != targetDate.Day() {
 				continue
 			}
 		}
