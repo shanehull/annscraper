@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.4](https://github.com/shanehull/annscraper/compare/v1.0.3...v1.0.4) (2026-05-13)
+
+
+### Bug Fixes
+
+* compare announcement dates in Sydney timezone, not UTC ([#47](https://github.com/shanehull/annscraper/issues/47)) ([1ddd0e8](https://github.com/shanehull/annscraper/commit/1ddd0e8160d1ef2559bd132e7264334743f00f80))
+
 ## [1.0.3](https://github.com/shanehull/annscraper/compare/v1.0.2...v1.0.3) (2026-04-23)
 
 
