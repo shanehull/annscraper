@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.6](https://github.com/shanehull/annscraper/compare/v1.0.5...v1.0.6) (2026-08-17)
+
+
+### Bug Fixes
+
+* use fmt.Fprintf instead of WriteString(fmt.Sprintf(...)) ([#52](https://github.com/shanehull/annscraper/issues/52)) ([fcbd7b1](https://github.com/shanehull/annscraper/commit/fcbd7b18d8d91262a4b4fcf507637b8318bb8edd))
+
 ## [1.0.5](https://github.com/shanehull/annscraper/compare/v1.0.4...v1.0.5) (2026-05-13)
 
 
